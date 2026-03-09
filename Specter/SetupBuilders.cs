@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
 namespace Specter;
 
 public class SetupBuilder<TReturn>(SetupEntry entry)
@@ -11,6 +15,30 @@ public class SetupBuilder<TReturn>(SetupEntry entry)
     public SetupBuilder<TReturn> Returns(Func<TReturn> factory)
     {
         entry.ReturnFactory = _ => factory();
+        return this;
+    }
+
+    public SetupBuilder<TReturn> Returns<T1>(Func<T1, TReturn> factory)
+    {
+        entry.ReturnFactory = args => factory((T1)args[0]!);
+        return this;
+    }
+
+    public SetupBuilder<TReturn> Returns<T1, T2>(Func<T1, T2, TReturn> factory)
+    {
+        entry.ReturnFactory = args => factory((T1)args[0]!, (T2)args[1]!);
+        return this;
+    }
+
+    public SetupBuilder<TReturn> Returns<T1, T2, T3>(Func<T1, T2, T3, TReturn> factory)
+    {
+        entry.ReturnFactory = args => factory((T1)args[0]!, (T2)args[1]!, (T3)args[2]!);
+        return this;
+    }
+
+    public SetupBuilder<TReturn> Returns<T1, T2, T3, T4>(Func<T1, T2, T3, T4, TReturn> factory)
+    {
+        entry.ReturnFactory = args => factory((T1)args[0]!, (T2)args[1]!, (T3)args[2]!, (T4)args[3]!);
         return this;
     }
 

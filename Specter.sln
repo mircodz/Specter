@@ -3,13 +3,13 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Specter", "Specter\Specter.csproj", "{7B915196-0E9F-4FF6-BD71-07BDFEA5187C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Specter", "src\Specter\Specter.csproj", "{7B915196-0E9F-4FF6-BD71-07BDFEA5187C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Specter.Generator", "Specter.Generator\Specter.Generator.csproj", "{83044DB1-3B3F-47FB-9FB0-EE516D2D53C4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Specter.Generator", "src\Specter.Generator\Specter.Generator.csproj", "{83044DB1-3B3F-47FB-9FB0-EE516D2D53C4}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Specter.Tests", "Specter.Tests\Specter.Tests.csproj", "{F467CD8C-C506-4EFA-B8D3-10CA79FB5C56}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Specter.Tests", "tests\Specter.Tests\Specter.Tests.csproj", "{F467CD8C-C506-4EFA-B8D3-10CA79FB5C56}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Specter.Benchmarks", "Specter.Benchmarks\Specter.Benchmarks.csproj", "{040CCA77-A2CB-4358-AFEC-A2D23D1EFB7F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -57,13 +57,20 @@ Global
 		{F467CD8C-C506-4EFA-B8D3-10CA79FB5C56}.Release|x64.Build.0 = Release|Any CPU
 		{F467CD8C-C506-4EFA-B8D3-10CA79FB5C56}.Release|x86.ActiveCfg = Release|Any CPU
 		{F467CD8C-C506-4EFA-B8D3-10CA79FB5C56}.Release|x86.Build.0 = Release|Any CPU
+		{040CCA77-A2CB-4358-AFEC-A2D23D1EFB7F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{040CCA77-A2CB-4358-AFEC-A2D23D1EFB7F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{040CCA77-A2CB-4358-AFEC-A2D23D1EFB7F}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{040CCA77-A2CB-4358-AFEC-A2D23D1EFB7F}.Debug|x64.Build.0 = Debug|Any CPU
+		{040CCA77-A2CB-4358-AFEC-A2D23D1EFB7F}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{040CCA77-A2CB-4358-AFEC-A2D23D1EFB7F}.Debug|x86.Build.0 = Debug|Any CPU
+		{040CCA77-A2CB-4358-AFEC-A2D23D1EFB7F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{040CCA77-A2CB-4358-AFEC-A2D23D1EFB7F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{040CCA77-A2CB-4358-AFEC-A2D23D1EFB7F}.Release|x64.ActiveCfg = Release|Any CPU
+		{040CCA77-A2CB-4358-AFEC-A2D23D1EFB7F}.Release|x64.Build.0 = Release|Any CPU
+		{040CCA77-A2CB-4358-AFEC-A2D23D1EFB7F}.Release|x86.ActiveCfg = Release|Any CPU
+		{040CCA77-A2CB-4358-AFEC-A2D23D1EFB7F}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
-	EndGlobalSection
-	GlobalSection(NestedProjects) = preSolution
-		{7B915196-0E9F-4FF6-BD71-07BDFEA5187C} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
-		{83044DB1-3B3F-47FB-9FB0-EE516D2D53C4} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
-		{F467CD8C-C506-4EFA-B8D3-10CA79FB5C56} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

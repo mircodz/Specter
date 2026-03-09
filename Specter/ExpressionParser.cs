@@ -1,26 +1,33 @@
+using System;
+using System.Linq;
 using System.Linq.Expressions;
 
 namespace Specter;
 
 public static class ExpressionParser
 {
-    public static (string MethodName, IMatcher[] Matchers) Parse(LambdaExpression lambda)
+    public static (string MethodName, Type[]? TypeArgs, IMatcher[] Matchers) Parse(LambdaExpression lambda)
     {
         var body = lambda.Body;
 
         // Handle UnaryExpression wrapping (e.g., void method cast to object via Convert)
         if (body is UnaryExpression unary)
+        {
             body = unary.Operand;
+        }
 
         if (body is MethodCallExpression call)
         {
             var matchers = call.Arguments.Select(ExtractMatcher).ToArray();
-            return (call.Method.Name, matchers);
+            Type[]? typeArgs = call.Method.IsGenericMethod
+                ? call.Method.GetGenericArguments()
+                : null;
+            return (call.Method.Name, typeArgs, matchers);
         }
 
         if (body is MemberExpression member)
         {
-            return ($"get_{member.Member.Name}", []);
+            return ($"get_{member.Member.Name}", null, []);
         }
 
         throw new ArgumentException(

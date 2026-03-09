@@ -1,0 +1,36 @@
+using Xunit;
+using static Specter.Wildcard;
+
+namespace Specter.Tests;
+
+public class CallbackTests
+{
+    [Fact]
+    public void Executes_on_each_matched_call()
+    {
+        var mock = new MockEmailService();
+        var count = 0;
+
+        mock.Setup(x => x.Send(Any, Any))
+            .Callback(() => count++)
+            .Returns(true);
+
+        mock.Instance.Send("a", "b");
+        mock.Instance.Send("c", "d");
+        Assert.Equal(2, count);
+    }
+
+    [Fact]
+    public void Captures_arguments()
+    {
+        var mock = new MockEmailService();
+        var capturedTo = "";
+
+        mock.Setup(x => x.Send(Any, Any))
+            .Callback(args => capturedTo = (string)args[0]!)
+            .Returns(true);
+
+        mock.Instance.Send("target@test.com", "subject");
+        Assert.Equal("target@test.com", capturedTo);
+    }
+}

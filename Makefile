@@ -11,28 +11,28 @@ help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
 
 build: ## Build the solution in Debug mode
-	dotnet build specter.sln -c Debug
+	dotnet build Specter.sln -c Debug
 
 build-release: ## Build the solution in Release mode
-	dotnet build specter.sln -c Release
+	dotnet build Specter.sln -c Release
 
 test: ## Run all tests
-	dotnet test specter.sln
+	dotnet test Specter.sln
 
 coverage: ## Run tests with coverage report
-	dotnet test specter.sln \
+	dotnet test Specter.sln \
 		/p:CollectCoverage=true \
 		/p:CoverletOutputFormat=cobertura \
 		/p:CoverletOutput=./TestResults/
 
 clean: ## Clean build artifacts
-	dotnet clean specter.sln || true
+	dotnet clean Specter.sln || true
 	rm -rf $(NUPKG_DIR)
-	rm -rf */bin */obj src/*/bin src/*/obj tests/*/bin tests/*/obj
+	rm -rf */bin */obj
 
 pack: clean build-release ## Pack NuGet packages
-	dotnet pack src/Specter/Specter.csproj -c Release -o $(NUPKG_DIR) /p:Version=$(VERSION)
-	dotnet pack src/Specter.Generator/Specter.Generator.csproj -c Release -o $(NUPKG_DIR) /p:Version=$(VERSION)
+	dotnet pack Specter/Specter.csproj -c Release -o $(NUPKG_DIR) /p:Version=$(VERSION)
+	dotnet pack Specter.Generator/Specter.Generator.csproj -c Release -o $(NUPKG_DIR) /p:Version=$(VERSION)
 	@echo ""
 	@echo "Packages created in $(NUPKG_DIR):"
 	@ls $(NUPKG_DIR)/*.nupkg

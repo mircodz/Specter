@@ -1,9 +1,13 @@
+using System;
+using System.Collections.Generic;
+
 namespace Specter;
 
 public interface IMatcher
 {
     bool Matches(object? actual);
     string Describe();
+    void OnMatched(object? actual) { }
 }
 
 public class AnyMatcher : IMatcher
@@ -17,9 +21,15 @@ public class EqualityMatcher<T>(T expected) : IMatcher
     public bool Matches(object? actual)
     {
         if (actual is T t)
+        {
             return EqualityComparer<T>.Default.Equals(t, expected);
+        }
+
         if (actual is null && expected is null)
+        {
             return true;
+        }
+
         return false;
     }
 
@@ -38,6 +48,8 @@ public class Matcher<T>
     private Matcher(IMatcher inner) => Inner = inner;
 
     public static readonly Matcher<T> Any = new(new AnyMatcher());
+
+    public static Matcher<T> From(IMatcher inner) => new(inner);
 
     public static Matcher<T> Is(Func<T, bool> pred, string label = "predicate")
         => new(new PredicateMatcher<T>(pred, label));

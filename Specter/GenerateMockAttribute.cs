@@ -1,3 +1,5 @@
+using System;
+
 namespace Specter;
 
 [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true)]

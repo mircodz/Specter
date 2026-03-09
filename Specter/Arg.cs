@@ -1,3 +1,5 @@
+using System;
+
 namespace Specter;
 
 public static class Arg

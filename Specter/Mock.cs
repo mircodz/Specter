@@ -16,4 +16,5 @@ public abstract class Mock<T>(bool strict = false, T? wrapping = null, Action<st
     protected virtual void OnReset() { }
 
     public void CheckUnusedSetups() => Interceptor.CheckUnusedSetups();
+    public void VerifyNoOtherCalls() => Interceptor.VerifyNoOtherCalls();
 }

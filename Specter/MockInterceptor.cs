@@ -47,11 +47,13 @@ public class MockInterceptor(bool strict = false, object? wrapping = null, Type?
 {
     private readonly List<SetupEntry> _setups = [];
     private readonly List<(string Method, Type[]? TypeArgs, object?[] Args)> _calls = [];
+    private readonly HashSet<int> _verifiedCallIndices = [];
 
     public void Reset()
     {
         _setups.Clear();
         _calls.Clear();
+        _verifiedCallIndices.Clear();
     }
 
     public SetupEntry AddSetup(string methodName, Type[]? typeArgs, IMatcher[] matchers)
@@ -102,7 +104,10 @@ public class MockInterceptor(bool strict = false, object? wrapping = null, Type?
 
         setup.WasMatched = true;
         for (int i = 0; i < setup.Matchers.Length; i++)
+        {
             setup.Matchers[i].OnMatched(args[i]);
+        }
+
         setup.Callback?.Invoke(args);
 
         if (setup.ThrowException is not null)
@@ -144,7 +149,10 @@ public class MockInterceptor(bool strict = false, object? wrapping = null, Type?
 
         setup.WasMatched = true;
         for (int i = 0; i < setup.Matchers.Length; i++)
+        {
             setup.Matchers[i].OnMatched(args[i]);
+        }
+
         setup.Callback?.Invoke(args);
 
         if (setup.ThrowException is not null)
@@ -191,6 +199,35 @@ public class MockInterceptor(bool strict = false, object? wrapping = null, Type?
         int count = CountCalls(methodName, typeArgs, matchers);
         if (!times.IsMatch(count))
             throw new VerificationException($"Verify failed: {FormatSignature(methodName, typeArgs, matchers)} — {times.Describe(count)}.");
+
+        for (int i = 0; i < _calls.Count; i++)
+        {
+            var c = _calls[i];
+            if (c.Method == methodName
+                && TypeArgsMatch(typeArgs, c.TypeArgs)
+                && matchers.Length == c.Args.Length
+                && matchers.Zip(c.Args).All(p => p.First.Matches(p.Second)))
+            {
+                _verifiedCallIndices.Add(i);
+            }
+        }
+    }
+
+    public void VerifyNoOtherCalls()
+    {
+        var unverified = new List<string>();
+        for (int i = 0; i < _calls.Count; i++)
+        {
+            if (!_verifiedCallIndices.Contains(i))
+            {
+                var c = _calls[i];
+                unverified.Add(FormatCall(c.Method, c.TypeArgs, c.Args));
+            }
+        }
+
+        if (unverified.Count > 0)
+            throw new VerificationException(
+                $"VerifyNoOtherCalls failed — unexpected call(s):\n{string.Join("\n", unverified.Select(s => $"  - {s}"))}");
     }
 
     private int CountCalls(string methodName, Type[]? typeArgs, IMatcher[] matchers)
@@ -230,6 +267,14 @@ public class MockInterceptor(bool strict = false, object? wrapping = null, Type?
                 $"No method '{lookup}' with {args.Length} parameter(s) found on {type.Name}.");
 
         return typeArgs?.Length > 0 ? method.MakeGenericMethod(typeArgs) : method;
+    }
+
+    private static string FormatCall(string methodName, Type[]? typeArgs, object?[] args)
+    {
+        string typeArgStr = typeArgs?.Length > 0
+            ? $"<{string.Join(", ", typeArgs.Select(t => t.Name))}>"
+            : "";
+        return $"{methodName}{typeArgStr}({string.Join(", ", args.Select(a => a?.ToString() ?? "null"))})";
     }
 
     private static string FormatSignature(string methodName, Type[]? typeArgs, IMatcher[] matchers)

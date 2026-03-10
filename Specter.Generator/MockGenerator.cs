@@ -63,7 +63,6 @@ public class MockGenerator : IIncrementalGenerator
         sb.AppendLine();
         sb.AppendLine("using System;");
         sb.AppendLine("using System.Linq;");
-        sb.AppendLine("using System.Linq.Expressions;");
         sb.AppendLine("using System.Threading.Tasks;");
         sb.AppendLine("using Specter;");
         sb.AppendLine();
@@ -252,52 +251,9 @@ public class MockGenerator : IIncrementalGenerator
             sb.AppendLine();
         }
 
-        sb.AppendLine($"    public SetupBuilder<TReturn> Setup<TReturn>(Expression<Func<{setupName}, TReturn>> expr)");
-        sb.AppendLine("    {");
-        sb.AppendLine("        var (method, typeArgs, matchers) = ExpressionParser.Parse(expr);");
-        sb.AppendLine("        return new SetupBuilder<TReturn>(Interceptor.AddSetup(method, typeArgs, matchers));");
-        sb.AppendLine("    }");
+        EmitSetupAndVerifyMethods(sb, setupName, "Interceptor", indent: "    ");
         sb.AppendLine();
-        sb.AppendLine($"    public VoidSetupBuilder Setup(Expression<Action<{setupName}>> expr)");
-        sb.AppendLine("    {");
-        sb.AppendLine("        var (method, typeArgs, matchers) = ExpressionParser.Parse(expr);");
-        sb.AppendLine("        return new VoidSetupBuilder(Interceptor.AddSetup(method, typeArgs, matchers));");
-        sb.AppendLine("    }");
-        sb.AppendLine();
-        sb.AppendLine($"    public SequenceSetupBuilder<TReturn> SetupSequence<TReturn>(Expression<Func<{setupName}, TReturn>> expr)");
-        sb.AppendLine("    {");
-        sb.AppendLine("        var (method, typeArgs, matchers) = ExpressionParser.Parse(expr);");
-        sb.AppendLine("        return new SequenceSetupBuilder<TReturn>(Interceptor.AddSetup(method, typeArgs, matchers));");
-        sb.AppendLine("    }");
-        sb.AppendLine();
-        sb.AppendLine($"    public void Verify<TReturn>(Expression<Func<{setupName}, TReturn>> expr, Specter.Times times)");
-        sb.AppendLine("    {");
-        sb.AppendLine("        var (method, typeArgs, matchers) = ExpressionParser.Parse(expr);");
-        sb.AppendLine("        Interceptor.Verify(method, typeArgs, matchers, times);");
-        sb.AppendLine("    }");
-        sb.AppendLine();
-        sb.AppendLine($"    public void Verify(Expression<Action<{setupName}>> expr, Specter.Times times)");
-        sb.AppendLine("    {");
-        sb.AppendLine("        var (method, typeArgs, matchers) = ExpressionParser.Parse(expr);");
-        sb.AppendLine("        Interceptor.Verify(method, typeArgs, matchers, times);");
-        sb.AppendLine("    }");
-        sb.AppendLine();
-        sb.AppendLine($"    public void VerifyInOrder(params Expression<Action<{setupName}>>[] steps)");
-        sb.AppendLine("    {");
-        sb.AppendLine("        Interceptor.VerifyInOrder(steps.Select(ExpressionParser.Parse).ToArray());");
-        sb.AppendLine("    }");
-        sb.AppendLine();
-        sb.AppendLine($"    public System.Collections.Generic.IReadOnlyList<Specter.CallRecord> ReceivedCalls<TReturn>(Expression<Func<{setupName}, TReturn>> expr)");
-        sb.AppendLine("    {");
-        sb.AppendLine("        var (method, typeArgs, matchers) = ExpressionParser.Parse(expr);");
-        sb.AppendLine("        return Interceptor.GetCalls(method, typeArgs, matchers).Select(c => new Specter.CallRecord(c.Args)).ToList();");
-        sb.AppendLine("    }");
-        sb.AppendLine();
-        sb.AppendLine($"    public System.Collections.Generic.IReadOnlyList<Specter.CallRecord> ReceivedCalls(Expression<Action<{setupName}>> expr)");
-        sb.AppendLine("    {");
-        sb.AppendLine("        var (method, typeArgs, matchers) = ExpressionParser.Parse(expr);");
-        sb.AppendLine("        return Interceptor.GetCalls(method, typeArgs, matchers).Select(c => new Specter.CallRecord(c.Args)).ToList();");
-        sb.AppendLine("    }");
+        EmitRecorder(sb, setupName, members, indent: "    ");
         sb.AppendLine("}");
     }
 
@@ -319,7 +275,6 @@ public class MockGenerator : IIncrementalGenerator
         sb.AppendLine();
         sb.AppendLine("using System;");
         sb.AppendLine("using System.Linq;");
-        sb.AppendLine("using System.Linq.Expressions;");
         sb.AppendLine("using System.Threading.Tasks;");
         sb.AppendLine("using Specter;");
         sb.AppendLine();
@@ -389,6 +344,7 @@ public class MockGenerator : IIncrementalGenerator
         sb.AppendLine();
         sb.AppendLine("    public void Reset() => _interceptor.Reset();");
         sb.AppendLine("    public void CheckUnusedSetups() => _interceptor.CheckUnusedSetups();");
+        sb.AppendLine("    public void VerifyNoOtherCalls() => _interceptor.VerifyNoOtherCalls();");
         sb.AppendLine();
 
         foreach (var m in members.Methods)
@@ -453,53 +409,146 @@ public class MockGenerator : IIncrementalGenerator
             sb.AppendLine();
         }
 
-        sb.AppendLine($"    public SetupBuilder<TReturn> Setup<TReturn>(Expression<Func<{setupName}, TReturn>> expr)");
-        sb.AppendLine("    {");
-        sb.AppendLine("        var (method, typeArgs, matchers) = ExpressionParser.Parse(expr);");
-        sb.AppendLine("        return new SetupBuilder<TReturn>(_interceptor.AddSetup(method, typeArgs, matchers));");
-        sb.AppendLine("    }");
+        EmitSetupAndVerifyMethods(sb, setupName, "_interceptor", indent: "    ");
         sb.AppendLine();
-        sb.AppendLine($"    public VoidSetupBuilder Setup(Expression<Action<{setupName}>> expr)");
-        sb.AppendLine("    {");
-        sb.AppendLine("        var (method, typeArgs, matchers) = ExpressionParser.Parse(expr);");
-        sb.AppendLine("        return new VoidSetupBuilder(_interceptor.AddSetup(method, typeArgs, matchers));");
-        sb.AppendLine("    }");
-        sb.AppendLine();
-        sb.AppendLine($"    public SequenceSetupBuilder<TReturn> SetupSequence<TReturn>(Expression<Func<{setupName}, TReturn>> expr)");
-        sb.AppendLine("    {");
-        sb.AppendLine("        var (method, typeArgs, matchers) = ExpressionParser.Parse(expr);");
-        sb.AppendLine("        return new SequenceSetupBuilder<TReturn>(_interceptor.AddSetup(method, typeArgs, matchers));");
-        sb.AppendLine("    }");
-        sb.AppendLine();
-        sb.AppendLine($"    public void Verify<TReturn>(Expression<Func<{setupName}, TReturn>> expr, Specter.Times times)");
-        sb.AppendLine("    {");
-        sb.AppendLine("        var (method, typeArgs, matchers) = ExpressionParser.Parse(expr);");
-        sb.AppendLine("        _interceptor.Verify(method, typeArgs, matchers, times);");
-        sb.AppendLine("    }");
-        sb.AppendLine();
-        sb.AppendLine($"    public void Verify(Expression<Action<{setupName}>> expr, Specter.Times times)");
-        sb.AppendLine("    {");
-        sb.AppendLine("        var (method, typeArgs, matchers) = ExpressionParser.Parse(expr);");
-        sb.AppendLine("        _interceptor.Verify(method, typeArgs, matchers, times);");
-        sb.AppendLine("    }");
-        sb.AppendLine();
-        sb.AppendLine($"    public void VerifyInOrder(params Expression<Action<{setupName}>>[] steps)");
-        sb.AppendLine("    {");
-        sb.AppendLine("        _interceptor.VerifyInOrder(steps.Select(ExpressionParser.Parse).ToArray());");
-        sb.AppendLine("    }");
-        sb.AppendLine();
-        sb.AppendLine($"    public System.Collections.Generic.IReadOnlyList<Specter.CallRecord> ReceivedCalls<TReturn>(Expression<Func<{setupName}, TReturn>> expr)");
-        sb.AppendLine("    {");
-        sb.AppendLine("        var (method, typeArgs, matchers) = ExpressionParser.Parse(expr);");
-        sb.AppendLine("        return _interceptor.GetCalls(method, typeArgs, matchers).Select(c => new Specter.CallRecord(c.Args)).ToList();");
-        sb.AppendLine("    }");
-        sb.AppendLine();
-        sb.AppendLine($"    public System.Collections.Generic.IReadOnlyList<Specter.CallRecord> ReceivedCalls(Expression<Action<{setupName}>> expr)");
-        sb.AppendLine("    {");
-        sb.AppendLine("        var (method, typeArgs, matchers) = ExpressionParser.Parse(expr);");
-        sb.AppendLine("        return _interceptor.GetCalls(method, typeArgs, matchers).Select(c => new Specter.CallRecord(c.Args)).ToList();");
-        sb.AppendLine("    }");
+        EmitRecorder(sb, setupName, members, indent: "    ");
         sb.AppendLine("}");
+    }
+
+    private static void EmitSetupAndVerifyMethods(
+        StringBuilder sb, string setupName, string interceptorRef, string indent)
+    {
+        var i = indent;
+
+        sb.AppendLine($"{i}public SetupBuilder<TReturn> Setup<TReturn>(Func<{setupName}, TReturn> configure)");
+        sb.AppendLine($"{i}{{");
+        sb.AppendLine($"{i}    var rec = new __Recorder();");
+        sb.AppendLine($"{i}    configure(rec);");
+        sb.AppendLine($"{i}    return new SetupBuilder<TReturn>({interceptorRef}.AddSetup(rec.CapturedMethod, rec.CapturedTypeArgs, rec.CapturedMatchers));");
+        sb.AppendLine($"{i}}}");
+        sb.AppendLine();
+        sb.AppendLine($"{i}public VoidSetupBuilder Setup(Action<{setupName}> configure)");
+        sb.AppendLine($"{i}{{");
+        sb.AppendLine($"{i}    var rec = new __Recorder();");
+        sb.AppendLine($"{i}    configure(rec);");
+        sb.AppendLine($"{i}    return new VoidSetupBuilder({interceptorRef}.AddSetup(rec.CapturedMethod, rec.CapturedTypeArgs, rec.CapturedMatchers));");
+        sb.AppendLine($"{i}}}");
+        sb.AppendLine();
+        sb.AppendLine($"{i}public SequenceSetupBuilder<TReturn> SetupSequence<TReturn>(Func<{setupName}, TReturn> configure)");
+        sb.AppendLine($"{i}{{");
+        sb.AppendLine($"{i}    var rec = new __Recorder();");
+        sb.AppendLine($"{i}    configure(rec);");
+        sb.AppendLine($"{i}    return new SequenceSetupBuilder<TReturn>({interceptorRef}.AddSetup(rec.CapturedMethod, rec.CapturedTypeArgs, rec.CapturedMatchers));");
+        sb.AppendLine($"{i}}}");
+        sb.AppendLine();
+        sb.AppendLine($"{i}public void Verify<TReturn>(Func<{setupName}, TReturn> configure, Specter.Times times)");
+        sb.AppendLine($"{i}{{");
+        sb.AppendLine($"{i}    var rec = new __Recorder();");
+        sb.AppendLine($"{i}    configure(rec);");
+        sb.AppendLine($"{i}    {interceptorRef}.Verify(rec.CapturedMethod, rec.CapturedTypeArgs, rec.CapturedMatchers, times);");
+        sb.AppendLine($"{i}}}");
+        sb.AppendLine();
+        sb.AppendLine($"{i}public void Verify(Action<{setupName}> configure, Specter.Times times)");
+        sb.AppendLine($"{i}{{");
+        sb.AppendLine($"{i}    var rec = new __Recorder();");
+        sb.AppendLine($"{i}    configure(rec);");
+        sb.AppendLine($"{i}    {interceptorRef}.Verify(rec.CapturedMethod, rec.CapturedTypeArgs, rec.CapturedMatchers, times);");
+        sb.AppendLine($"{i}}}");
+        sb.AppendLine();
+        sb.AppendLine($"{i}public void VerifyInOrder(params Action<{setupName}>[] steps)");
+        sb.AppendLine($"{i}{{");
+        sb.AppendLine($"{i}    var parsed = new (string, Type[]?, IMatcher[])[steps.Length];");
+        sb.AppendLine($"{i}    for (int si = 0; si < steps.Length; si++)");
+        sb.AppendLine($"{i}    {{");
+        sb.AppendLine($"{i}        var rec = new __Recorder();");
+        sb.AppendLine($"{i}        steps[si](rec);");
+        sb.AppendLine($"{i}        parsed[si] = (rec.CapturedMethod, rec.CapturedTypeArgs, rec.CapturedMatchers);");
+        sb.AppendLine($"{i}    }}");
+        sb.AppendLine($"{i}    {interceptorRef}.VerifyInOrder(parsed);");
+        sb.AppendLine($"{i}}}");
+        sb.AppendLine();
+        sb.AppendLine($"{i}public System.Collections.Generic.IReadOnlyList<Specter.CallRecord> ReceivedCalls<TReturn>(Func<{setupName}, TReturn> configure)");
+        sb.AppendLine($"{i}{{");
+        sb.AppendLine($"{i}    var rec = new __Recorder();");
+        sb.AppendLine($"{i}    configure(rec);");
+        sb.AppendLine($"{i}    return {interceptorRef}.GetCalls(rec.CapturedMethod, rec.CapturedTypeArgs, rec.CapturedMatchers).Select(c => new Specter.CallRecord(c.Args)).ToList();");
+        sb.AppendLine($"{i}}}");
+        sb.AppendLine();
+        sb.AppendLine($"{i}public System.Collections.Generic.IReadOnlyList<Specter.CallRecord> ReceivedCalls(Action<{setupName}> configure)");
+        sb.AppendLine($"{i}{{");
+        sb.AppendLine($"{i}    var rec = new __Recorder();");
+        sb.AppendLine($"{i}    configure(rec);");
+        sb.AppendLine($"{i}    return {interceptorRef}.GetCalls(rec.CapturedMethod, rec.CapturedTypeArgs, rec.CapturedMatchers).Select(c => new Specter.CallRecord(c.Args)).ToList();");
+        sb.AppendLine($"{i}}}");
+    }
+
+    private static void EmitRecorder(StringBuilder sb, string setupName, MemberCollection members, string indent)
+    {
+        var i = indent;
+        var ii = indent + "    ";
+
+        sb.AppendLine($"{i}private sealed class __Recorder : {setupName}");
+        sb.AppendLine($"{i}{{");
+        sb.AppendLine($"{ii}internal string CapturedMethod = \"\";");
+        sb.AppendLine($"{ii}internal Type[]? CapturedTypeArgs;");
+        sb.AppendLine($"{ii}internal IMatcher[] CapturedMatchers = Array.Empty<IMatcher>();");
+
+        foreach (var m in members.Methods)
+        {
+            var typeParams = m.TypeParameterNames.Count > 0
+                ? $"<{string.Join(", ", m.TypeParameterNames)}>"
+                : "";
+            var parms = string.Join(", ", m.Parameters.Select(p => $"Matcher<{p.Type}> {p.Name}"));
+            var typeArgsCapture = m.TypeParameterNames.Count > 0
+                ? $"new Type[] {{ {string.Join(", ", m.TypeParameterNames.Select(tp => $"typeof({tp})"))} }}"
+                : "null";
+            var matchersExpr = m.Parameters.Count > 0
+                ? $"new IMatcher[] {{ {string.Join(", ", m.Parameters.Select(p => $"{p.Name}.Inner"))} }}"
+                : "Array.Empty<IMatcher>()";
+            var ret = m.IsVoid ? "void" : m.ReturnType;
+
+            sb.AppendLine();
+            sb.AppendLine($"{ii}public {ret} {m.Name}{typeParams}({parms})");
+            sb.AppendLine($"{ii}{{");
+            sb.AppendLine($"{ii}    CapturedMethod = \"{m.Name}\";");
+            sb.AppendLine($"{ii}    CapturedTypeArgs = {typeArgsCapture};");
+            sb.AppendLine($"{ii}    CapturedMatchers = {matchersExpr};");
+            if (!m.IsVoid)
+                sb.AppendLine($"{ii}    return default!;");
+            sb.AppendLine($"{ii}}}");
+        }
+
+        foreach (var p in members.Properties)
+        {
+            if (p.HasGetter)
+            {
+                sb.AppendLine();
+                // The setup interface only declares { get; } for properties
+                sb.AppendLine($"{ii}public {p.Type} {p.Name}");
+                sb.AppendLine($"{ii}{{");
+                sb.AppendLine($"{ii}    get");
+                sb.AppendLine($"{ii}    {{");
+                sb.AppendLine($"{ii}        CapturedMethod = \"get_{p.Name}\";");
+                sb.AppendLine($"{ii}        CapturedTypeArgs = null;");
+                sb.AppendLine($"{ii}        CapturedMatchers = Array.Empty<IMatcher>();");
+                sb.AppendLine($"{ii}        return default!;");
+                sb.AppendLine($"{ii}    }}");
+                sb.AppendLine($"{ii}}}");
+            }
+
+            if (p.HasSetter)
+            {
+                sb.AppendLine();
+                sb.AppendLine($"{ii}public void Set{p.Name}(Matcher<{p.Type}> value)");
+                sb.AppendLine($"{ii}{{");
+                sb.AppendLine($"{ii}    CapturedMethod = \"Set{p.Name}\";");
+                sb.AppendLine($"{ii}    CapturedTypeArgs = null;");
+                sb.AppendLine($"{ii}    CapturedMatchers = new IMatcher[] {{ value.Inner }};");
+                sb.AppendLine($"{ii}}}");
+            }
+        }
+
+        sb.AppendLine($"{i}}}");
     }
 
     // ── Data models ────────────────────────────────────────────

@@ -32,6 +32,6 @@ public class InheritanceTests
         IEmailService service = mock.Instance;
 
         Assert.NotNull(service);
-        Assert.IsType<MockEmailService>(service);
+        Assert.IsAssignableFrom<IEmailService>(service);
     }
 }

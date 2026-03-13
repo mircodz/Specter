@@ -170,9 +170,100 @@ public class MockGenerator : IIncrementalGenerator
     private static void EmitMockClass(
         StringBuilder sb, string className, string setupName, string qualifiedInterface, MemberCollection members)
     {
-        sb.AppendLine($"public sealed class {className} : Mock<{qualifiedInterface}>, {qualifiedInterface}");
+        sb.AppendLine($"public sealed class {className}");
         sb.AppendLine("{");
-        sb.AppendLine($"    public {className}(bool strict = false, {qualifiedInterface}? wrapping = null, System.Action<string>? onUnusedSetup = null) : base(strict, wrapping, onUnusedSetup) {{ }}");
+        sb.AppendLine($"    private readonly MockInterceptor _interceptor;");
+        sb.AppendLine($"    private readonly __Instance _inner;");
+        sb.AppendLine($"    public {qualifiedInterface} Instance => _inner;");
+        sb.AppendLine();
+        sb.AppendLine($"    public {className}(bool strict = false, {qualifiedInterface}? wrapping = null, System.Action<string>? onUnusedSetup = null)");
+        sb.AppendLine($"    {{");
+        sb.AppendLine($"        _interceptor = new(strict, wrapping, typeof({qualifiedInterface}), onUnusedSetup);");
+        sb.AppendLine($"        _inner = new(_interceptor);");
+        sb.AppendLine($"    }}");
+        sb.AppendLine();
+        sb.AppendLine($"    public void Reset() {{ _interceptor.Reset(); _inner.ResetState(); }}");
+        sb.AppendLine($"    public void CheckUnusedSetups() => _interceptor.CheckUnusedSetups();");
+        sb.AppendLine($"    public void VerifyNoOtherCalls() => _interceptor.VerifyNoOtherCalls();");
+        sb.AppendLine();
+
+        // Method handles — work for all param counts since facade doesn't implement interface
+        foreach (var m in members.Methods)
+        {
+            var typeParams = m.TypeParameterNames.Count > 0
+                ? $"<{string.Join(", ", m.TypeParameterNames)}>"
+                : "";
+            var matcherParms = string.Join(", ", m.Parameters.Select(p => $"Matcher<{p.Type}> {p.Name}"));
+            var typeArgsExpr = m.TypeParameterNames.Count > 0
+                ? $"new System.Type[] {{ {string.Join(", ", m.TypeParameterNames.Select(tp => $"typeof({tp})"))} }}"
+                : "null";
+            var matchersExpr = m.Parameters.Count > 0
+                ? $"new IMatcher[] {{ {string.Join(", ", m.Parameters.Select(p => $"{p.Name}.Inner"))} }}"
+                : "Array.Empty<IMatcher>()";
+
+            if (m.IsVoid)
+            {
+                sb.AppendLine($"    public VoidMethodHandle {m.Name}{typeParams}({matcherParms})");
+                sb.AppendLine($"        => new(_interceptor, \"{m.Name}\", {typeArgsExpr}, {matchersExpr});");
+            }
+            else
+            {
+                sb.AppendLine($"    public MethodHandle<{m.ReturnType}> {m.Name}{typeParams}({matcherParms})");
+                sb.AppendLine($"        => new(_interceptor, \"{m.Name}\", {typeArgsExpr}, {matchersExpr});");
+            }
+            sb.AppendLine();
+        }
+
+        // Property handles
+        foreach (var p in members.Properties)
+        {
+            sb.AppendLine($"    public PropertyHandle<{p.Type}> {p.Name} => new(_interceptor, \"{p.Name}\");");
+            sb.AppendLine();
+        }
+
+        EmitSetupAndVerifyMethods(sb, setupName, "_interceptor", indent: "    ");
+        sb.AppendLine();
+        EmitInstanceClass(sb, qualifiedInterface, members, indent: "    ");
+        sb.AppendLine();
+        EmitRecorder(sb, setupName, members, indent: "    ");
+        sb.AppendLine("}");
+    }
+
+    private static void EmitInstanceClass(
+        StringBuilder sb, string qualifiedInterface, MemberCollection members, string indent)
+    {
+        var i = indent;
+        var ii = indent + "    ";
+
+        sb.AppendLine($"{i}private sealed class __Instance : {qualifiedInterface}");
+        sb.AppendLine($"{i}{{");
+        sb.AppendLine($"{ii}private readonly MockInterceptor _interceptor;");
+
+        var settableProps = members.Properties.Where(p => p.HasSetter).ToList();
+        foreach (var p in settableProps)
+        {
+            sb.AppendLine($"{ii}private {p.Type}? _backing_{p.Name};");
+            sb.AppendLine($"{ii}private bool _backing_{p.Name}_set;");
+        }
+        sb.AppendLine();
+        sb.AppendLine($"{ii}internal __Instance(MockInterceptor interceptor) => _interceptor = interceptor;");
+        sb.AppendLine();
+
+        if (settableProps.Count > 0)
+        {
+            sb.AppendLine($"{ii}internal void ResetState()");
+            sb.AppendLine($"{ii}{{");
+            foreach (var p in settableProps)
+            {
+                sb.AppendLine($"{ii}    _backing_{p.Name} = default;");
+                sb.AppendLine($"{ii}    _backing_{p.Name}_set = false;");
+            }
+            sb.AppendLine($"{ii}}}");
+        }
+        else
+        {
+            sb.AppendLine($"{ii}internal void ResetState() {{ }}");
+        }
         sb.AppendLine();
 
         foreach (var m in members.Methods)
@@ -190,71 +281,35 @@ public class MockGenerator : IIncrementalGenerator
 
             if (m.IsVoid)
             {
-                sb.AppendLine($"    public void {m.Name}{typeParams}({parms})");
-                sb.AppendLine($"        => Interceptor.InterceptVoid(\"{m.Name}\", {typeArgsExpr}, {args});");
+                sb.AppendLine($"{ii}public void {m.Name}{typeParams}({parms})");
+                sb.AppendLine($"{ii}    => _interceptor.InterceptVoid(\"{m.Name}\", {typeArgsExpr}, {args});");
             }
             else
             {
-                sb.AppendLine($"    public {m.ReturnType} {m.Name}{typeParams}({parms})");
-                sb.AppendLine($"        => Interceptor.Intercept<{m.ReturnType}>(\"{m.Name}\", {typeArgsExpr}, {args});");
+                sb.AppendLine($"{ii}public {m.ReturnType} {m.Name}{typeParams}({parms})");
+                sb.AppendLine($"{ii}    => _interceptor.Intercept<{m.ReturnType}>(\"{m.Name}\", {typeArgsExpr}, {args});");
             }
-            sb.AppendLine();
-        }
-
-        // Backing fields for settable properties
-        var settableProps = members.Properties.Where(p => p.HasSetter).ToList();
-        foreach (var p in settableProps)
-        {
-            sb.AppendLine($"    private {p.Type}? _backing_{p.Name};");
-            sb.AppendLine($"    private bool _backing_{p.Name}_set;");
-        }
-        if (settableProps.Count > 0)
-        {
             sb.AppendLine();
         }
 
         foreach (var p in members.Properties)
         {
-            sb.AppendLine($"    public {p.Type} {p.Name}");
-            sb.AppendLine("    {");
+            sb.AppendLine($"{ii}public {p.Type} {p.Name}");
+            sb.AppendLine($"{ii}{{");
             if (p.HasGetter)
             {
                 if (p.HasSetter)
-                {
-                    sb.AppendLine($"        get => _backing_{p.Name}_set ? _backing_{p.Name}! : Interceptor.Intercept<{p.Type}>(\"get_{p.Name}\", null, Array.Empty<object?>());");
-                }
+                    sb.AppendLine($"{ii}    get => _backing_{p.Name}_set ? _backing_{p.Name}! : _interceptor.Intercept<{p.Type}>(\"get_{p.Name}\", null, Array.Empty<object?>());");
                 else
-                {
-                    sb.AppendLine($"        get => Interceptor.Intercept<{p.Type}>(\"get_{p.Name}\", null, Array.Empty<object?>());");
-                }
+                    sb.AppendLine($"{ii}    get => _interceptor.Intercept<{p.Type}>(\"get_{p.Name}\", null, Array.Empty<object?>());");
             }
             if (p.HasSetter)
-            {
-                sb.AppendLine($"        set {{ _backing_{p.Name}_set = true; _backing_{p.Name} = value; Interceptor.InterceptVoid(\"Set{p.Name}\", null, new object?[] {{ value }}); }}");
-            }
-
-            sb.AppendLine("    }");
+                sb.AppendLine($"{ii}    set {{ _backing_{p.Name}_set = true; _backing_{p.Name} = value; _interceptor.InterceptVoid(\"Set{p.Name}\", null, new object?[] {{ value }}); }}");
+            sb.AppendLine($"{ii}}}");
             sb.AppendLine();
         }
 
-        // OnReset override to clear backing fields
-        if (settableProps.Count > 0)
-        {
-            sb.AppendLine("    protected override void OnReset()");
-            sb.AppendLine("    {");
-            foreach (var p in settableProps)
-            {
-                sb.AppendLine($"        _backing_{p.Name} = default;");
-                sb.AppendLine($"        _backing_{p.Name}_set = false;");
-            }
-            sb.AppendLine("    }");
-            sb.AppendLine();
-        }
-
-        EmitSetupAndVerifyMethods(sb, setupName, "Interceptor", indent: "    ");
-        sb.AppendLine();
-        EmitRecorder(sb, setupName, members, indent: "    ");
-        sb.AppendLine("}");
+        sb.AppendLine($"{i}}}");
     }
 
     private static void ExecuteAbstractClass(SourceProductionContext context, INamedTypeSymbol classSymbol)
@@ -409,10 +464,47 @@ public class MockGenerator : IIncrementalGenerator
             sb.AppendLine();
         }
 
+        EmitAbstractClassShortcuts(sb, "_interceptor", members, indent: "    ");
         EmitSetupAndVerifyMethods(sb, setupName, "_interceptor", indent: "    ");
         sb.AppendLine();
         EmitRecorder(sb, setupName, members, indent: "    ");
         sb.AppendLine("}");
+    }
+
+    private static void EmitAbstractClassShortcuts(
+        StringBuilder sb, string interceptorRef, MemberCollection members, string indent)
+    {
+        var i = indent;
+
+        foreach (var m in members.Methods)
+        {
+            // Zero-parameter methods can't be overloaded — same name/params but different return type conflicts
+            if (m.Parameters.Count == 0)
+                continue;
+
+            var typeParams = m.TypeParameterNames.Count > 0
+                ? $"<{string.Join(", ", m.TypeParameterNames)}>"
+                : "";
+            var matcherParms = string.Join(", ", m.Parameters.Select(p => $"Matcher<{p.Type}> {p.Name}"));
+            var typeArgsExpr = m.TypeParameterNames.Count > 0
+                ? $"new System.Type[] {{ {string.Join(", ", m.TypeParameterNames.Select(tp => $"typeof({tp})"))} }}"
+                : "null";
+            var matchersExpr = m.Parameters.Count > 0
+                ? $"new IMatcher[] {{ {string.Join(", ", m.Parameters.Select(p => $"{p.Name}.Inner"))} }}"
+                : "Array.Empty<IMatcher>()";
+
+            if (m.IsVoid)
+            {
+                sb.AppendLine($"{i}public VoidMethodHandle {m.Name}{typeParams}({matcherParms})");
+                sb.AppendLine($"{i}    => new({interceptorRef}, \"{m.Name}\", {typeArgsExpr}, {matchersExpr});");
+            }
+            else
+            {
+                sb.AppendLine($"{i}public MethodHandle<{m.ReturnType}> {m.Name}{typeParams}({matcherParms})");
+                sb.AppendLine($"{i}    => new({interceptorRef}, \"{m.Name}\", {typeArgsExpr}, {matchersExpr});");
+            }
+            sb.AppendLine();
+        }
     }
 
     private static void EmitSetupAndVerifyMethods(

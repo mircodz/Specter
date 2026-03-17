@@ -11,29 +11,29 @@ help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
 
 build: ## Build the solution in Debug mode
-	dotnet build Specter.sln -c Debug
+	dotnet build Mokk.sln -c Debug
 
 build-release: ## Build the solution in Release mode
-	dotnet build Specter.sln -c Release
+	dotnet build Mokk.sln -c Release
 
 test: ## Run all tests
-	dotnet test Specter.sln
+	dotnet test Mokk.sln
 
 coverage: ## Run tests with coverage report
-	dotnet test Specter.sln \
+	dotnet test Mokk.sln \
 		/p:CollectCoverage=true \
 		/p:CoverletOutputFormat=cobertura \
 		/p:CoverletOutput=./TestResults/
 
 clean: ## Clean build artifacts
-	dotnet clean Specter.sln || true
+	dotnet clean Mokk.sln || true
 	rm -rf $(NUPKG_DIR)
 	rm -rf */bin */obj
 
 pack: clean build-release ## Pack NuGet package
-	dotnet pack Specter/Specter.csproj -c Release -o $(NUPKG_DIR)
+	dotnet pack Mokk/Mokk.csproj -c Release -o $(NUPKG_DIR)
 	@echo ""
-	@echo "Package created: $(NUPKG_DIR)/Specter.$(VERSION).nupkg"
+	@echo "Package created: $(NUPKG_DIR)/Mokk.$(VERSION).nupkg"
 
 setup: ## Initial setup (restore packages)
 	dotnet restore

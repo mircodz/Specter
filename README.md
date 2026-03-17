@@ -1,14 +1,14 @@
-# Specter
+# Mokk
 
 C# mocking library powered by Roslyn source generators.
 
 ## Installation
 
 ```
-dotnet add package Specter
+dotnet add package Mokk
 ```
 
-The package includes both the runtime library and the source generator. No second reference needed.
+The package includes both the runtime library and the source generator.
 
 ```csharp
 [assembly: GenerateMock(typeof(IEmailService))]
@@ -26,7 +26,7 @@ mock.Send(Any, Any).Verify(Times.Once);
 ## Setup
 
 ```csharp
-using Specter;
+using Mokk;
 
 [assembly: GenerateMock(typeof(IEmailService))]
 [assembly: GenerateMock(typeof(IUserRepository))]
@@ -36,7 +36,7 @@ using Specter;
 ## Matchers
 
 ```csharp
-using static Specter.Wildcard;
+using static Mokk.Wildcard;
 
 mock.Send(Any, Any).Returns(true);
 mock.Send("alice@example.com", Any).Returns(true);
@@ -137,7 +137,7 @@ Assert.Equal("alice@example.com", (string)calls[0].Args[0]);
 ## Argument capture
 
 ```csharp
-using static Specter.Capture;
+using static Mokk.Capture;
 
 var slot = Slot<string>();
 mock.Send(Into(slot), Any).Returns(true);
@@ -205,7 +205,7 @@ BenchmarkDotNet v0.15.8, .NET 8.0, Linux, 12th Gen Intel Core i7-12700KF
 
 | Method      | Mean       | Error      | StdDev     | Rank | Gen0   | Gen1   | Allocated |
 |------------ |-----------:|-----------:|-----------:|-----:|-------:|-------:|----------:|
-| Specter     | 164.042 ns |  8.3301 ns |  4.3568 ns |    1 | 0.0219 | 0.0055 |    1056 B |
+| Mokk        | 164.042 ns |  8.3301 ns |  4.3568 ns |    1 | 0.0219 | 0.0055 |    1056 B |
 | Imposter    | 202.634 ns | 11.0567 ns |  7.3133 ns |    2 | 0.0124 | 0.0119 |     168 B |
 | Moq         | 290.735 ns | 14.6240 ns |  9.6729 ns |    3 | 0.0205 | 0.0100 |     528 B |
 | NSubstitute | 357.505 ns | 11.7103 ns |  7.7456 ns |    4 | 0.0219 | 0.0110 |     304 B |

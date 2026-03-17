@@ -23,7 +23,7 @@ public class SmartDefaultsTests
     public async Task Task_of_T_returns_completed_task_with_default()
     {
         var mock = new MockUserRepository();
-        // Task<string> completes without throwing — inner value is default(string) = null
+        // Task<string> completes without throwing - inner value is default(string) = null
         var task = mock.Instance.GetUserAsync(1);
         Assert.NotNull(task);
         var result = await task;

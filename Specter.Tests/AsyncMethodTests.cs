@@ -1,5 +1,6 @@
 using System.Threading.Tasks;
 using Xunit;
+using static Specter.Wildcard;
 
 namespace Specter.Tests;
 
@@ -9,7 +10,7 @@ public class AsyncMethodTests
     public async Task ReturnsAsync_for_Task()
     {
         var mock = new MockUserRepository();
-        mock.Setup(x => x.GetUserAsync(42)).ReturnsAsync("Alice");
+        mock.GetUserAsync(42).ReturnsAsync("Alice");
 
         Assert.Equal("Alice", await mock.Instance.GetUserAsync(42));
     }
@@ -18,7 +19,7 @@ public class AsyncMethodTests
     public async Task ReturnsAsync_for_ValueTask()
     {
         var mock = new MockUserRepository();
-        mock.Setup(x => x.CountAsync()).ReturnsAsync(5);
+        mock.CountAsync().ReturnsAsync(5);
 
         Assert.Equal(5, await mock.Instance.CountAsync());
     }

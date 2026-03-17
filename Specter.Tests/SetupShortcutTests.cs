@@ -4,13 +4,12 @@ using static Specter.Wildcard;
 namespace Specter.Tests;
 
 /// <summary>
-/// Tests for the shortcut setup syntax: mock.Method(matchers).Returns(value)
-/// instead of: mock.Setup(x => x.Method(matchers)).Returns(value)
+/// Tests for the direct setup syntax: mock.Method(matchers).Returns(value)
 /// </summary>
 public class SetupShortcutTests
 {
     [Fact]
-    public void Shortcut_with_wildcard_returns_value()
+    public void Wildcard_returns_value()
     {
         var mock = new MockEmailService();
         mock.Send(Any, Any).Returns(true);
@@ -19,7 +18,7 @@ public class SetupShortcutTests
     }
 
     [Fact]
-    public void Shortcut_with_exact_first_arg()
+    public void Exact_first_arg()
     {
         var mock = new MockEmailService();
         mock.Send("admin@site.com", Any).Returns(true);
@@ -29,7 +28,7 @@ public class SetupShortcutTests
     }
 
     [Fact]
-    public void Shortcut_last_wins_over_earlier()
+    public void Last_wins_over_earlier()
     {
         var mock = new MockEmailService();
         mock.Send(Any, Any).Returns(true);
@@ -40,29 +39,17 @@ public class SetupShortcutTests
     }
 
     [Fact]
-    public void Shortcut_and_setup_lambda_are_equivalent()
-    {
-        var mockA = new MockEmailService();
-        mockA.Send(Any, Any).Returns(true);
-
-        var mockB = new MockEmailService();
-        mockB.Setup(x => x.Send(Any, Any)).Returns(true);
-
-        Assert.Equal(mockA.Instance.Send("a@b.com", "hi"), mockB.Instance.Send("a@b.com", "hi"));
-    }
-
-    [Fact]
-    public void Shortcut_verify_still_works()
+    public void Verify_after_setup()
     {
         var mock = new MockEmailService();
         mock.Send(Any, Any).Returns(true);
         mock.Instance.Send("a@b.com", "hi");
 
-        mock.Verify(x => x.Send(Any, Any), Times.Once);
+        mock.Send(Any, Any).Verify(Times.Once);
     }
 
     [Fact]
-    public void Shortcut_for_string_returning_method()
+    public void String_returning_method()
     {
         var mock = new MockEmailService();
         mock.GetTemplate(Any, Any).Returns("my-template");
@@ -71,7 +58,7 @@ public class SetupShortcutTests
     }
 
     [Fact]
-    public void Shortcut_for_void_method()
+    public void Void_method_callback()
     {
         var repo = new MockUserRepository();
         int called = 0;
@@ -83,25 +70,24 @@ public class SetupShortcutTests
     }
 
     [Fact]
-    public void Shortcut_mixed_with_setup_lambda_in_same_test()
+    public void Multiple_setups_on_different_methods()
     {
         var mock = new MockEmailService();
-        mock.Send(Any, Any).Returns(true);                          // shortcut
-        mock.Setup(x => x.GetTemplate("v2", Any)).Returns("v2!");  // lambda
+        mock.Send(Any, Any).Returns(true);
+        mock.GetTemplate("v2", Any).Returns("v2!");
 
         Assert.True(mock.Instance.Send("a@b.com", "hi"));
         Assert.Equal("v2!", mock.Instance.GetTemplate("v2", 1));
     }
 
     [Fact]
-    public void Concrete_call_with_real_args_uses_interface_impl_not_shortcut()
+    public void Zero_param_method_shortcut_works()
     {
-        // Verifies overload resolution: string → string beats string → Matcher<string>
-        var mock = new MockEmailService();
-        mock.Send("specific@b.com", Any).Returns(true);
+        var mock = new MockExtendedService();
+        mock.GetName().Returns("Test");
+        mock.GetCount().Returns(7);
 
-        // Calling Instance with real strings hits the interface impl, which dispatches via interceptor
-        Assert.True(mock.Instance.Send("specific@b.com", "hi"));
-        Assert.False(mock.Instance.Send("other@b.com", "hi"));
+        Assert.Equal("Test", mock.Instance.GetName());
+        Assert.Equal(7, mock.Instance.GetCount());
     }
 }

@@ -14,7 +14,6 @@ jobs:
     environment: publish
     runs-on: ubuntu-latest
     env:
-      VERSION_FILE: version
       OUT_DIR: artifacts/nupkg
       OWNER: ${{ github.repository_owner }}
     steps:
@@ -24,19 +23,13 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 9.0.x
+          dotnet-version: '8.0.x'
 
       - name: Restore
         run: dotnet restore
 
-      - name: Read version
-        id: version
-        run: echo "VERSION=$(cat $VERSION_FILE)" >> "$GITHUB_OUTPUT"
-
       - name: Pack
-        run: |
-          dotnet pack src/Specter/Specter.csproj -c Release -o $OUT_DIR /p:Version=${{ steps.version.outputs.VERSION }}
-          dotnet pack src/Specter.Generator/Specter.Generator.csproj -c Release -o $OUT_DIR /p:Version=${{ steps.version.outputs.VERSION }}
+        run: dotnet pack Specter/Specter.csproj -c Release -o $OUT_DIR
 
       - name: NuGet login
         id: nuget_login

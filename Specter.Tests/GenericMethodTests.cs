@@ -9,7 +9,7 @@ public class GenericMethodTests
     public void Exact_type_setup_returns_value()
     {
         var mock = new MockTemplatedService();
-        mock.Setup(x => x.DoSomething<int>(Any)).Returns(1);
+        mock.DoSomething<int>(Any).Returns(1);
 
         Assert.Equal(1, mock.Instance.DoSomething(123));
     }
@@ -18,8 +18,8 @@ public class GenericMethodTests
     public void Different_type_args_are_independent()
     {
         var mock = new MockTemplatedService();
-        mock.Setup(x => x.DoSomething<int>(Any)).Returns(1);
-        mock.Setup(x => x.DoSomething<string>(Any)).Returns("hello");
+        mock.DoSomething<int>(Any).Returns(1);
+        mock.DoSomething<string>(Any).Returns("hello");
 
         Assert.Equal(1, mock.Instance.DoSomething<int>(0));
         Assert.Equal("hello", mock.Instance.DoSomething<string>(""));
@@ -33,7 +33,7 @@ public class GenericMethodTests
         mock.Instance.DoSomething<int>(1);
         mock.Instance.DoSomething<string>("x");
 
-        mock.Verify(x => x.DoSomething<AnyType>(Any), Times.Exactly(2));
+        mock.DoSomething<AnyType>(Any).Verify(Times.Exactly(2));
     }
 
     [Fact]
@@ -41,7 +41,7 @@ public class GenericMethodTests
     {
         var mock = new MockTemplatedService();
         var count = 0;
-        mock.Setup(x => x.DoSomething<AnyType>(Any)).Callback(() => count++);
+        mock.DoSomething<AnyType>(Any).Callback(() => count++);
 
         mock.Instance.DoSomething<int>(1);
         mock.Instance.DoSomething<string>("x");
@@ -53,8 +53,8 @@ public class GenericMethodTests
     public void Exact_type_wins_over_AnyType_wildcard()
     {
         var mock = new MockTemplatedService();
-        mock.Setup(x => x.DoSomething<AnyType>(Any)).Callback(() => { });
-        mock.Setup(x => x.DoSomething<int>(Any)).Returns(99);
+        mock.DoSomething<AnyType>(Any).Callback(() => { });
+        mock.DoSomething<int>(Any).Returns(99);
 
         Assert.Equal(99, mock.Instance.DoSomething<int>(0));
     }

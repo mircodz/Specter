@@ -1,4 +1,5 @@
 using Xunit;
+using static Specter.Wildcard;
 
 namespace Specter.Tests;
 
@@ -8,8 +9,8 @@ public class InheritanceTests
     public void Mock_implements_base_and_derived_methods()
     {
         var mock = new MockExtendedService();
-        mock.Setup(x => x.GetName()).Returns("TestService");
-        mock.Setup(x => x.GetCount()).Returns(42);
+        mock.GetName().Returns("TestService");
+        mock.GetCount().Returns(42);
 
         Assert.Equal("TestService", mock.Instance.GetName());
         Assert.Equal(42, mock.Instance.GetCount());
@@ -19,7 +20,7 @@ public class InheritanceTests
     public void Mock_can_be_used_as_base_interface()
     {
         var mock = new MockExtendedService();
-        mock.Setup(x => x.GetName()).Returns("Base");
+        mock.GetName().Returns("Base");
 
         IBaseService baseService = mock.Instance;
         Assert.Equal("Base", baseService.GetName());

@@ -11,7 +11,7 @@ public class CallbackTests
         var mock = new MockEmailService();
         var count = 0;
 
-        mock.Setup(x => x.Send(Any, Any))
+        mock.Send(Any, Any)
             .Callback(() => count++)
             .Returns(true);
 
@@ -26,7 +26,7 @@ public class CallbackTests
         var mock = new MockEmailService();
         var capturedTo = "";
 
-        mock.Setup(x => x.Send(Any, Any))
+        mock.Send(Any, Any)
             .Callback(args => capturedTo = (string)args[0]!)
             .Returns(true);
 

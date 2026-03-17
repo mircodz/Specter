@@ -12,7 +12,7 @@ public class VoidMethodTests
         var mock = new MockUserRepository();
         var invoked = false;
 
-        mock.Setup(x => x.Delete(Any)).Callback(() => invoked = true);
+        mock.Delete(Any).Callback(() => invoked = true);
 
         mock.Instance.Delete(42);
         Assert.True(invoked);
@@ -22,7 +22,7 @@ public class VoidMethodTests
     public void Throws_on_matched_call()
     {
         var mock = new MockUserRepository();
-        mock.Setup(x => x.Delete(99)).Throws(new InvalidOperationException("Cannot delete"));
+        mock.Delete(99).Throws(new InvalidOperationException("Cannot delete"));
 
         Assert.Throws<InvalidOperationException>(() => mock.Instance.Delete(99));
     }
@@ -33,7 +33,7 @@ public class VoidMethodTests
         var mock = new MockUserRepository();
         object?[]? captured = null;
 
-        mock.Setup(x => x.Delete(Any)).Callback(args => captured = args);
+        mock.Delete(Any).Callback(args => captured = args);
 
         mock.Instance.Delete(7);
         Assert.NotNull(captured);

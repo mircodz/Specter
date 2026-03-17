@@ -20,7 +20,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '9.0.x'
+        dotnet-version: '8.0.x'
 
     - name: Restore dependencies
       run: dotnet restore
@@ -52,11 +52,9 @@ jobs:
           cat CoverageReport/Summary.txt >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-          # Extract line coverage percentage
           LINE_COVERAGE=$(grep "Line coverage:" CoverageReport/Summary.txt | grep -oP '\d+\.?\d*(?=%)')
           echo "line_coverage=$LINE_COVERAGE" >> $GITHUB_OUTPUT
 
-          # Extract branch coverage percentage
           BRANCH_COVERAGE=$(grep "Branch coverage:" CoverageReport/Summary.txt | grep -oP '\d+\.?\d*(?=%)')
           echo "branch_coverage=$BRANCH_COVERAGE" >> $GITHUB_OUTPUT
         else

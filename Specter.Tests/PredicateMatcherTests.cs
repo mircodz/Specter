@@ -9,10 +9,10 @@ public class PredicateMatcherTests
     public void Predicate_matcher_with_Matcher_Is()
     {
         var mock = new MockEmailService();
-        mock.Setup(x => x.Send(
+        mock.Send(
             Matcher<string>.Is(s => s.EndsWith("@internal.com"), "@internal.com"),
             Any
-        )).Returns(true);
+        ).Returns(true);
 
         Assert.True(mock.Instance.Send("alice@internal.com", "hi"));
         Assert.False(mock.Instance.Send("alice@external.com", "hi"));
@@ -22,10 +22,10 @@ public class PredicateMatcherTests
     public void Predicate_matcher_with_Arg_Is()
     {
         var mock = new MockEmailService();
-        mock.Setup(x => x.Send(
+        mock.Send(
             Arg.Is<string>(s => s.Contains("@")),
             Any
-        )).Returns(true);
+        ).Returns(true);
 
         Assert.True(mock.Instance.Send("test@example.com", "subject"));
         Assert.False(mock.Instance.Send("no-at-sign", "subject"));
@@ -35,7 +35,7 @@ public class PredicateMatcherTests
     public void Arg_Any_matches_any_value()
     {
         var mock = new MockEmailService();
-        mock.Setup(x => x.Send(Arg.Any<string>(), Arg.Any<string>())).Returns(true);
+        mock.Send(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
 
         Assert.True(mock.Instance.Send("any@any.com", "any"));
     }

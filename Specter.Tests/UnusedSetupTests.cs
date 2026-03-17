@@ -11,7 +11,7 @@ public class UnusedSetupTests
     {
         var warnings = new List<string>();
         var mock = new MockEmailService(onUnusedSetup: warnings.Add);
-        mock.Setup(x => x.Send(Any, Any)).Returns(true);
+        mock.Send(Any, Any).Returns(true);
 
         mock.CheckUnusedSetups();
 
@@ -24,7 +24,7 @@ public class UnusedSetupTests
     {
         var warnings = new List<string>();
         var mock = new MockEmailService(onUnusedSetup: warnings.Add);
-        mock.Setup(x => x.Send(Any, Any)).Returns(true);
+        mock.Send(Any, Any).Returns(true);
 
         mock.Instance.Send("a@b.com", "hi");
         mock.CheckUnusedSetups();
@@ -37,8 +37,8 @@ public class UnusedSetupTests
     {
         var warnings = new List<string>();
         var mock = new MockEmailService(onUnusedSetup: warnings.Add);
-        mock.Setup(x => x.Send(Any, Any)).Returns(true);
-        mock.Setup(x => x.GetTemplate(Any, Any)).Returns("hi");
+        mock.Send(Any, Any).Returns(true);
+        mock.GetTemplate(Any, Any).Returns("hi");
 
         mock.CheckUnusedSetups();
 
@@ -52,8 +52,8 @@ public class UnusedSetupTests
     {
         var warnings = new List<string>();
         var mock = new MockEmailService(onUnusedSetup: warnings.Add);
-        mock.Setup(x => x.Send(Any, Any)).Returns(true);
-        mock.Setup(x => x.GetTemplate(Any, Any)).Returns("hi");
+        mock.Send(Any, Any).Returns(true);
+        mock.GetTemplate(Any, Any).Returns("hi");
 
         mock.Instance.Send("a@b.com", "hi");
         mock.CheckUnusedSetups();
@@ -67,9 +67,9 @@ public class UnusedSetupTests
     public void Disabled_when_no_callback_provided()
     {
         var mock = new MockEmailService();
-        mock.Setup(x => x.Send(Any, Any)).Returns(true);
+        mock.Send(Any, Any).Returns(true);
 
-        // Should not throw — no callback = no check
+        // Should not throw - no callback = no check
         mock.CheckUnusedSetups();
     }
 }

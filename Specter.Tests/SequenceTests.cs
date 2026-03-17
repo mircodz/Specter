@@ -10,7 +10,7 @@ public class SequenceTests
     public void Returns_values_in_order()
     {
         var mock = new MockEmailService();
-        mock.SetupSequence(x => x.Send(Any, Any))
+        mock.Send(Any, Any).Sequence()
             .Returns(true)
             .Returns(false)
             .Returns(true);
@@ -24,7 +24,7 @@ public class SequenceTests
     public void Returns_default_after_exhausted()
     {
         var mock = new MockEmailService();
-        mock.SetupSequence(x => x.GetTemplate(Any, Any))
+        mock.GetTemplate(Any, Any).Sequence()
             .Returns("first")
             .Returns("second");
 
@@ -37,7 +37,7 @@ public class SequenceTests
     public void Throws_in_sequence()
     {
         var mock = new MockEmailService();
-        mock.SetupSequence(x => x.Send(Any, Any))
+        mock.Send(Any, Any).Sequence()
             .Returns(true)
             .Throws<InvalidOperationException>();
 

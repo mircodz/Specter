@@ -1,14 +1,11 @@
 using System.Threading.Tasks;
 using Specter;
 using Imposter.Abstractions;
-using Rocks;
 
 // Specter: generates MockBenchmarkService
 [assembly: GenerateMock(typeof(Specter.Benchmarks.IBenchmarkService))]
 // Imposter: generates IBenchmarkServiceImposter
 [assembly: GenerateImposter(typeof(Specter.Benchmarks.IBenchmarkService))]
-// Rocks: generates IBenchmarkServiceCreateExpectations
-[assembly: Rock(typeof(Specter.Benchmarks.IBenchmarkService), BuildType.Create)]
 
 namespace Specter.Benchmarks;
 

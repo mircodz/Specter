@@ -1,4 +1,4 @@
-.PHONY: help build test clean pack coverage format
+.PHONY: help build test clean pack coverage
 
 # Variables
 VERSION := $(shell cat version)
@@ -30,12 +30,10 @@ clean: ## Clean build artifacts
 	rm -rf $(NUPKG_DIR)
 	rm -rf */bin */obj
 
-pack: clean build-release ## Pack NuGet packages
-	dotnet pack Specter/Specter.csproj -c Release -o $(NUPKG_DIR) /p:Version=$(VERSION)
-	dotnet pack Specter.Generator/Specter.Generator.csproj -c Release -o $(NUPKG_DIR) /p:Version=$(VERSION)
+pack: clean build-release ## Pack NuGet package
+	dotnet pack Specter/Specter.csproj -c Release -o $(NUPKG_DIR)
 	@echo ""
-	@echo "Packages created in $(NUPKG_DIR):"
-	@ls $(NUPKG_DIR)/*.nupkg
+	@echo "Package created: $(NUPKG_DIR)/Specter.$(VERSION).nupkg"
 
 setup: ## Initial setup (restore packages)
 	dotnet restore

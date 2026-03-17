@@ -1,4 +1,5 @@
 using Xunit;
+using static Specter.Wildcard;
 
 namespace Specter.Tests;
 
@@ -16,7 +17,7 @@ public class AutoPropertyBackingStoreTests
     public void Get_without_set_falls_through_to_interceptor()
     {
         var mock = new MockUserRepository();
-        mock.Setup(x => x.Name).Returns("FromSetup");
+        mock.Name.Getter().Returns("FromSetup");
         Assert.Equal("FromSetup", mock.Instance.Name);
     }
 
@@ -24,7 +25,7 @@ public class AutoPropertyBackingStoreTests
     public void Set_value_takes_priority_over_setup()
     {
         var mock = new MockUserRepository();
-        mock.Setup(x => x.Name).Returns("FromSetup");
+        mock.Name.Getter().Returns("FromSetup");
         mock.Instance.Name = "Direct";
         Assert.Equal("Direct", mock.Instance.Name);
     }
@@ -35,7 +36,7 @@ public class AutoPropertyBackingStoreTests
         var mock = new MockUserRepository();
         mock.Instance.Name = "Alice";
         mock.Reset();
-        // After reset, no setup and no backing — falls through to smart default
+        // After reset, no setup and no backing - falls through to smart default
         Assert.Equal("", mock.Instance.Name);
     }
 
@@ -43,7 +44,7 @@ public class AutoPropertyBackingStoreTests
     public void Read_only_property_still_works_via_interceptor()
     {
         var mock = new MockUserRepository();
-        mock.Setup(x => x.Age).Returns(30);
+        mock.Age.Getter().Returns(30);
         Assert.Equal(30, mock.Instance.Age);
     }
 }

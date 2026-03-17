@@ -6,18 +6,17 @@ using NSubstitute;
 using MoqMock = Moq.Mock<Specter.Benchmarks.IBenchmarkService>;
 using MoqIt = Moq.It;
 using NSArg = NSubstitute.Arg;
-using RocksArg = Rocks.Arg;
 using Imposter.Abstractions;
 
 namespace Specter.Benchmarks;
 
 /// <summary>
 /// Measures the cost of a single method call on a pre-configured mock.
-/// Setup is done once in GlobalSetup — only the call itself is timed.
-/// Specter/Rocks/Imposter call logs are reset after each iteration to prevent unbounded growth.
+/// Setup is done once in GlobalSetup - only the call itself is timed.
+/// The Specter call log is reset after each iteration to prevent unbounded growth.
 /// </summary>
 [MemoryDiagnoser]
-[SimpleJob(RuntimeMoniker.Net10_0, warmupCount: 3, iterationCount: 10)]
+[SimpleJob(RuntimeMoniker.Net80, warmupCount: 3, iterationCount: 10)]
 [Orderer(SummaryOrderPolicy.FastestToSlowest)]
 [RankColumn]
 public class MethodCallBenchmarks
@@ -27,7 +26,6 @@ public class MethodCallBenchmarks
     private IBenchmarkService _moq = null!;
     private IBenchmarkService _nsubstitute = null!;
     private IBenchmarkService _fakeItEasy = null!;
-    private IBenchmarkService _rocks = null!;
     private IBenchmarkService _imposter = null!;
 
     [GlobalSetup]
@@ -35,7 +33,7 @@ public class MethodCallBenchmarks
     {
         // Specter
         _spectermock = new MockBenchmarkService();
-        _spectermock.Setup(x => x.Process(Wildcard.Any)).Returns(true);
+        _spectermock.Process(Wildcard.Any).Returns(true);
         _specter = _spectermock.Instance;
 
         // Moq
@@ -51,16 +49,14 @@ public class MethodCallBenchmarks
         _fakeItEasy = A.Fake<IBenchmarkService>();
         A.CallTo(() => _fakeItEasy.Process(A<string>._)).Returns(true);
 
-        // Rocks
-        var rock = new IBenchmarkServiceCreateExpectations();
-        rock.Setups.Process(RocksArg.Any<string>()).ReturnValue(true);
-        _rocks = rock.Instance();
-
         // Imposter
         var imp = new IBenchmarkServiceImposter();
         imp.Process(Arg<string>.Any()).Returns(true);
         _imposter = imp.Instance();
     }
+
+    [IterationSetup]
+    public void IterationSetup() => _spectermock.Reset();
 
     [Benchmark(Description = "Specter")]
     public bool Specter() => _specter.Process("hello");
@@ -73,9 +69,6 @@ public class MethodCallBenchmarks
 
     [Benchmark(Description = "FakeItEasy")]
     public bool FakeItEasy() => _fakeItEasy.Process("hello");
-
-    [Benchmark(Description = "Rocks")]
-    public bool Rocks() => _rocks.Process("hello");
 
     [Benchmark(Description = "Imposter")]
     public bool Imposter() => _imposter.Process("hello");

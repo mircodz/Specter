@@ -14,33 +14,13 @@ public class SetupEntry(string methodName, Type[]? typeArgs, IMatcher[] matchers
     public Exception? ThrowException { get; set; }
     public Action<object?[]>? Callback { get; set; }
     public Queue<Func<object?>>? SequenceQueue { get; set; }
-    public bool WasMatched { get; set; }
+    public bool WasMatched { get; internal set; }
 
     public bool IsMatch(string method, Type[]? typeArgs, object?[] args)
         => method == MethodName
-        && TypeArgsMatch(typeArgs)
+        && MockInterceptor.TypeArgsMatch(TypeArgs, typeArgs)
         && Matchers.Length == args.Length
         && Matchers.Zip(args).All(p => p.First.Matches(p.Second));
-
-    private bool TypeArgsMatch(Type[]? actual)
-    {
-        if (TypeArgs is null && actual is null)
-        {
-            return true;
-        }
-
-        if (TypeArgs is null || actual is null)
-        {
-            return false;
-        }
-
-        if (TypeArgs.Length != actual.Length)
-        {
-            return false;
-        }
-
-        return TypeArgs.Zip(actual).All(p => p.First == typeof(AnyType) || p.First == p.Second);
-    }
 }
 
 public class MockInterceptor(bool strict = false, object? wrapping = null, Type? wrappingType = null, Action<string>? onUnusedSetup = null)
@@ -77,7 +57,7 @@ public class MockInterceptor(bool strict = false, object? wrapping = null, Type?
 
         if (unused.Count > 0)
         {
-            onUnusedSetup($"Unused setup(s) — configured but never matched:\n{string.Join("\n", unused.Select(s => $"  - {s}"))}");
+            onUnusedSetup($"Unused setup(s) - configured but never matched:\n{string.Join("\n", unused.Select(s => $"  - {s}"))}");
         }
     }
 
@@ -171,11 +151,7 @@ public class MockInterceptor(bool strict = false, object? wrapping = null, Type?
 
             for (int i = callIndex; i < _calls.Count; i++)
             {
-                var call = _calls[i];
-                if (call.Method == method
-                    && TypeArgsMatch(typeArgs, call.TypeArgs)
-                    && matchers.Length == call.Args.Length
-                    && matchers.Zip(call.Args).All(p => p.First.Matches(p.Second)))
+                if (CallMatches(_calls[i], method, typeArgs, matchers))
                 {
                     callIndex = i + 1;
                     found = true;
@@ -198,15 +174,11 @@ public class MockInterceptor(bool strict = false, object? wrapping = null, Type?
     {
         int count = CountCalls(methodName, typeArgs, matchers);
         if (!times.IsMatch(count))
-            throw new VerificationException($"Verify failed: {FormatSignature(methodName, typeArgs, matchers)} — {times.Describe(count)}.");
+            throw new VerificationException($"Verify failed: {FormatSignature(methodName, typeArgs, matchers)} - {times.Describe(count)}.");
 
         for (int i = 0; i < _calls.Count; i++)
         {
-            var c = _calls[i];
-            if (c.Method == methodName
-                && TypeArgsMatch(typeArgs, c.TypeArgs)
-                && matchers.Length == c.Args.Length
-                && matchers.Zip(c.Args).All(p => p.First.Matches(p.Second)))
+            if (CallMatches(_calls[i], methodName, typeArgs, matchers))
             {
                 _verifiedCallIndices.Add(i);
             }
@@ -227,24 +199,25 @@ public class MockInterceptor(bool strict = false, object? wrapping = null, Type?
 
         if (unverified.Count > 0)
             throw new VerificationException(
-                $"VerifyNoOtherCalls failed — unexpected call(s):\n{string.Join("\n", unverified.Select(s => $"  - {s}"))}");
+                $"VerifyNoOtherCalls failed - unexpected call(s):\n{string.Join("\n", unverified.Select(s => $"  - {s}"))}");
     }
 
     private int CountCalls(string methodName, Type[]? typeArgs, IMatcher[] matchers)
-        => _calls.Count(c =>
-            c.Method == methodName
-            && TypeArgsMatch(typeArgs, c.TypeArgs)
-            && matchers.Length == c.Args.Length
-            && matchers.Zip(c.Args).All(p => p.First.Matches(p.Second)));
+        => _calls.Count(c => CallMatches(c, methodName, typeArgs, matchers));
 
     public IReadOnlyList<(string Method, Type[]? TypeArgs, object?[] Args)> GetCalls(
         string methodName, Type[]? typeArgs, IMatcher[] matchers)
         => _calls
-            .Where(c => c.Method == methodName
-                && TypeArgsMatch(typeArgs, c.TypeArgs)
-                && matchers.Length == c.Args.Length
-                && matchers.Zip(c.Args).All(p => p.First.Matches(p.Second)))
+            .Where(c => CallMatches(c, methodName, typeArgs, matchers))
             .ToList();
+
+    private static bool CallMatches(
+        (string Method, Type[]? TypeArgs, object?[] Args) call,
+        string methodName, Type[]? typeArgs, IMatcher[] matchers)
+        => call.Method == methodName
+        && TypeArgsMatch(typeArgs, call.TypeArgs)
+        && matchers.Length == call.Args.Length
+        && matchers.Zip(call.Args).All(p => p.First.Matches(p.Second));
 
     private TReturn InvokeOnWrapping<TReturn>(string methodName, Type[]? typeArgs, object?[] args)
         => (TReturn)FindWrappingMethod(methodName, typeArgs, args).Invoke(wrapping, args)!;
@@ -256,15 +229,10 @@ public class MockInterceptor(bool strict = false, object? wrapping = null, Type?
     {
         var type = wrappingType!;
 
-        var lookup = methodName.Length > 3 && methodName.StartsWith("Set", StringComparison.Ordinal)
-                     && char.IsUpper(methodName[3])
-            ? "set_" + methodName.Substring(3)
-            : methodName;
-
         var method = type.GetMethods()
-            .FirstOrDefault(m => m.Name == lookup && m.GetParameters().Length == args.Length)
+            .FirstOrDefault(m => m.Name == methodName && m.GetParameters().Length == args.Length)
             ?? throw new InvalidOperationException(
-                $"No method '{lookup}' with {args.Length} parameter(s) found on {type.Name}.");
+                $"No method '{methodName}' with {args.Length} parameter(s) found on {type.Name}.");
 
         return typeArgs?.Length > 0 ? method.MakeGenericMethod(typeArgs) : method;
     }
@@ -285,7 +253,7 @@ public class MockInterceptor(bool strict = false, object? wrapping = null, Type?
         return $"{methodName}{typeArgStr}({string.Join(", ", matchers.Select(m => m.Describe()))})";
     }
 
-    private static bool TypeArgsMatch(Type[]? expected, Type[]? actual)
+    internal static bool TypeArgsMatch(Type[]? expected, Type[]? actual)
     {
         if (expected is null && actual is null)
         {
@@ -308,4 +276,4 @@ public class MockInterceptor(bool strict = false, object? wrapping = null, Type?
 
 public class VerificationException(string message) : Exception(message);
 
-public class MissingSetupException(string signature) : Exception($"Strict mock: unexpected call to {signature} — no setup matched.");
+public class MissingSetupException(string signature) : Exception($"Strict mock: unexpected call to {signature} - no setup matched.");

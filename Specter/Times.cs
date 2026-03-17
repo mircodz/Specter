@@ -24,5 +24,5 @@ public readonly struct Times
     public static Times Between(int min, int max) => new(min, max, $"between {min} and {max}");
 
     public bool IsMatch(int count) => count >= _min && count <= _max;
-    public string Describe(int actual) => $"expected {_description} call(s), got {actual}";
+    public string Describe(int actual) => $"expected {_description} calls, got {actual}";
 }

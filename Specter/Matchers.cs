@@ -25,11 +25,6 @@ public class EqualityMatcher<T>(T expected) : IMatcher
             return EqualityComparer<T>.Default.Equals(t, expected);
         }
 
-        if (actual is null && expected is null)
-        {
-            return true;
-        }
-
         return false;
     }
 
@@ -54,10 +49,8 @@ public class Matcher<T>
     public static Matcher<T> Is(Func<T, bool> pred, string label = "predicate")
         => new(new PredicateMatcher<T>(pred, label));
 
-    // Wildcard _ → Matcher<T>.Any for any T — makes _ universally usable
     public static implicit operator Matcher<T>(Wildcard _) => Any;
 
-    // Concrete value → equality matcher (enables passing "alice@test.com" directly)
     public static implicit operator Matcher<T>(T value)
         => new(new EqualityMatcher<T>(value));
 

@@ -1,9 +1,18 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace Specter;
 
-public sealed class MethodHandle<TReturn>
+public interface ICallSpec
+{
+    string Method { get; }
+    Type[]? TypeArgs { get; }
+    IMatcher[] Matchers { get; }
+}
+
+public sealed class MethodHandle<TReturn> : ICallSpec
 {
     private readonly MockInterceptor _interceptor;
     private readonly string _method;
@@ -18,6 +27,10 @@ public sealed class MethodHandle<TReturn>
         _typeArgs = typeArgs;
         _matchers = matchers;
     }
+
+    string ICallSpec.Method => _method;
+    Type[]? ICallSpec.TypeArgs => _typeArgs;
+    IMatcher[] ICallSpec.Matchers => _matchers;
 
     private SetupEntry Entry => _entry ??= _interceptor.AddSetup(_method, _typeArgs, _matchers);
 
@@ -43,9 +56,15 @@ public sealed class MethodHandle<TReturn>
     public void Throws(Exception ex) => Entry.ThrowException = ex;
 
     public SequenceSetupBuilder<TReturn> Sequence() => new(Entry);
+
+    public void Verify(Times times) => _interceptor.Verify(_method, _typeArgs, _matchers, times);
+
+    public IReadOnlyList<CallRecord> ReceivedCalls()
+        => _interceptor.GetCalls(_method, _typeArgs, _matchers)
+            .Select(c => new CallRecord(c.Args)).ToList();
 }
 
-public sealed class VoidMethodHandle
+public sealed class VoidMethodHandle : ICallSpec
 {
     private readonly MockInterceptor _interceptor;
     private readonly string _method;
@@ -61,6 +80,10 @@ public sealed class VoidMethodHandle
         _matchers = matchers;
     }
 
+    string ICallSpec.Method => _method;
+    Type[]? ICallSpec.TypeArgs => _typeArgs;
+    IMatcher[] ICallSpec.Matchers => _matchers;
+
     private SetupEntry Entry => _entry ??= _interceptor.AddSetup(_method, _typeArgs, _matchers);
 
     public VoidMethodHandle Callback(Action callback) { Entry.Callback = _ => callback(); return this; }
@@ -68,6 +91,12 @@ public sealed class VoidMethodHandle
 
     public void Throws<TException>() where TException : Exception, new() => Entry.ThrowException = new TException();
     public void Throws(Exception ex) => Entry.ThrowException = ex;
+
+    public void Verify(Times times) => _interceptor.Verify(_method, _typeArgs, _matchers, times);
+
+    public IReadOnlyList<CallRecord> ReceivedCalls()
+        => _interceptor.GetCalls(_method, _typeArgs, _matchers)
+            .Select(c => new CallRecord(c.Args)).ToList();
 }
 
 public sealed class PropertyHandle<T>
@@ -85,7 +114,7 @@ public sealed class PropertyHandle<T>
         => new(_interceptor, $"get_{_propertyName}", null, Array.Empty<IMatcher>());
 
     public VoidMethodHandle Setter(Matcher<T> value)
-        => new(_interceptor, $"Set{_propertyName}", null, new IMatcher[] { value.Inner });
+        => new(_interceptor, $"set_{_propertyName}", null, new IMatcher[] { value.Inner });
 }
 
 public static class MethodHandleExtensions

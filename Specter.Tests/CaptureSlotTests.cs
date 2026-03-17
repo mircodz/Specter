@@ -11,7 +11,7 @@ public class CaptureSlotTests
     {
         var slot = Slot<string>();
         var mock = new MockEmailService();
-        mock.Setup(x => x.Send(Into(slot), Any)).Returns(true);
+        mock.Send(Into(slot), Any).Returns(true);
 
         mock.Instance.Send("hello@test.com", "subject");
 
@@ -24,7 +24,7 @@ public class CaptureSlotTests
     {
         var slot = Slot<string>();
         var mock = new MockEmailService();
-        mock.Setup(x => x.Send(Into(slot), Any)).Returns(true);
+        mock.Send(Into(slot), Any).Returns(true);
 
         mock.Instance.Send("first@test.com", "subject");
         mock.Instance.Send("second@test.com", "subject");
@@ -37,7 +37,7 @@ public class CaptureSlotTests
     {
         var slot = Slot<string>();
         var mock = new MockEmailService();
-        mock.Setup(x => x.Send(Into(slot), Any)).Returns(true);
+        mock.Send(Into(slot), Any).Returns(true);
 
         Assert.False(slot.HasValue);
         Assert.Null(slot.Value);
@@ -49,13 +49,13 @@ public class CaptureSlotTests
         var slot = Slot<string>();
         var mock = new MockEmailService();
         // First setup captures but only matches specific subject
-        mock.Setup(x => x.Send(Into(slot), "specific")).Returns(true);
+        mock.Send(Into(slot), "specific").Returns(true);
         // Second setup is the one that actually wins
-        mock.Setup(x => x.Send(Any, Any)).Returns(false);
+        mock.Send(Any, Any).Returns(false);
 
         mock.Instance.Send("hello@test.com", "other");
 
-        // Slot should not have been captured — the capturing setup didn't win
+        // Slot should not have been captured - the capturing setup didn't win
         Assert.False(slot.HasValue);
     }
 
@@ -64,7 +64,7 @@ public class CaptureSlotTests
     {
         var slot = Slot<int>();
         var mock = new MockEmailService();
-        mock.Setup(x => x.GetTemplate(Any, Into(slot))).Returns("result");
+        mock.GetTemplate(Any, Into(slot)).Returns("result");
 
         mock.Instance.GetTemplate("welcome", 42);
 
@@ -77,7 +77,7 @@ public class CaptureSlotTests
         var toSlot = Slot<string>();
         var subjectSlot = Slot<string>();
         var mock = new MockEmailService();
-        mock.Setup(x => x.Send(Into(toSlot), Into(subjectSlot))).Returns(true);
+        mock.Send(Into(toSlot), Into(subjectSlot)).Returns(true);
 
         mock.Instance.Send("a@test.com", "hello");
 

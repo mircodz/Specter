@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
@@ -53,7 +54,6 @@ public class MockGenerator : IIncrementalGenerator
             : interfaceSymbol.ContainingNamespace.ToDisplayString();
 
         var mockClassName = GetMockClassName(interfaceName);
-        var setupInterfaceName = $"{interfaceName}Setup";
         var qualifiedInterface = interfaceSymbol.ToDisplayString(TypeFormat);
         var members = CollectMembers(interfaceSymbol);
 
@@ -62,7 +62,6 @@ public class MockGenerator : IIncrementalGenerator
         sb.AppendLine("#nullable enable");
         sb.AppendLine();
         sb.AppendLine("using System;");
-        sb.AppendLine("using System.Linq;");
         sb.AppendLine("using System.Threading.Tasks;");
         sb.AppendLine("using Specter;");
         sb.AppendLine();
@@ -73,9 +72,7 @@ public class MockGenerator : IIncrementalGenerator
             sb.AppendLine();
         }
 
-        EmitSetupInterface(sb, setupInterfaceName, members);
-        sb.AppendLine();
-        EmitMockClass(sb, mockClassName, setupInterfaceName, qualifiedInterface, members);
+        EmitMockClass(sb, mockClassName, qualifiedInterface, members);
 
         var fileName = ns != null ? $"{ns}.{mockClassName}" : mockClassName;
         context.AddSource($"{fileName}.g.cs", sb.ToString());
@@ -83,9 +80,10 @@ public class MockGenerator : IIncrementalGenerator
 
     private static string GetMockClassName(string typeName)
     {
+        const int abstractPrefixLength = 8; // "Abstract".Length
         string baseName;
-        if (typeName.StartsWith("Abstract") && typeName.Length > 8 && char.IsUpper(typeName[8]))
-            baseName = typeName.Substring(8);
+        if (typeName.StartsWith("Abstract") && typeName.Length > abstractPrefixLength && char.IsUpper(typeName[abstractPrefixLength]))
+            baseName = typeName.Substring(abstractPrefixLength);
         else if (typeName.Length > 1 && typeName[0] == 'I' && char.IsUpper(typeName[1]))
             baseName = typeName.Substring(1);
         else
@@ -95,9 +93,9 @@ public class MockGenerator : IIncrementalGenerator
 
     private static MemberCollection CollectMembers(INamedTypeSymbol interfaceSymbol)
     {
-        var methods = new System.Collections.Generic.List<MethodModel>();
-        var properties = new System.Collections.Generic.List<PropertyModel>();
-        var seen = new System.Collections.Generic.HashSet<string>();
+        var methods = new List<MethodModel>();
+        var properties = new List<PropertyModel>();
+        var seen = new HashSet<string>();
 
         void Process(INamedTypeSymbol iface)
         {
@@ -135,40 +133,20 @@ public class MockGenerator : IIncrementalGenerator
         return new MemberCollection(methods, properties);
     }
 
-    private static void EmitSetupInterface(StringBuilder sb, string name, MemberCollection members)
+    private static void EmitVerifyInOrder(StringBuilder sb, string interceptorRef, string indent)
     {
-        sb.AppendLine($"public interface {name}");
-        sb.AppendLine("{");
-
-        foreach (var m in members.Methods)
-        {
-            var typeParams = m.TypeParameterNames.Count > 0
-                ? $"<{string.Join(", ", m.TypeParameterNames)}>"
-                : "";
-            var parms = string.Join(", ", m.Parameters.Select(p => $"Matcher<{p.Type}> {p.Name}"));
-            sb.AppendLine(m.IsVoid
-                ? $"    void {m.Name}{typeParams}({parms});"
-                : $"    {m.ReturnType} {m.Name}{typeParams}({parms});");
-        }
-
-        foreach (var p in members.Properties)
-        {
-            if (p.HasGetter)
-            {
-                sb.AppendLine($"    {p.Type} {p.Name} {{ get; }}");
-            }
-
-            if (p.HasSetter)
-            {
-                sb.AppendLine($"    void Set{p.Name}(Matcher<{p.Type}> value);");
-            }
-        }
-
-        sb.AppendLine("}");
+        var i = indent;
+        sb.AppendLine($"{i}public void VerifyInOrder(params ICallSpec[] steps)");
+        sb.AppendLine($"{i}{{");
+        sb.AppendLine($"{i}    var parsed = new (string, System.Type[]?, IMatcher[])[steps.Length];");
+        sb.AppendLine($"{i}    for (int si = 0; si < steps.Length; si++)");
+        sb.AppendLine($"{i}        parsed[si] = (steps[si].Method, steps[si].TypeArgs, steps[si].Matchers);");
+        sb.AppendLine($"{i}    {interceptorRef}.VerifyInOrder(parsed);");
+        sb.AppendLine($"{i}}}");
     }
 
     private static void EmitMockClass(
-        StringBuilder sb, string className, string setupName, string qualifiedInterface, MemberCollection members)
+        StringBuilder sb, string className, string qualifiedInterface, MemberCollection members)
     {
         sb.AppendLine($"public sealed class {className}");
         sb.AppendLine("{");
@@ -187,7 +165,6 @@ public class MockGenerator : IIncrementalGenerator
         sb.AppendLine($"    public void VerifyNoOtherCalls() => _interceptor.VerifyNoOtherCalls();");
         sb.AppendLine();
 
-        // Method handles — work for all param counts since facade doesn't implement interface
         foreach (var m in members.Methods)
         {
             var typeParams = m.TypeParameterNames.Count > 0
@@ -214,18 +191,15 @@ public class MockGenerator : IIncrementalGenerator
             sb.AppendLine();
         }
 
-        // Property handles
         foreach (var p in members.Properties)
         {
             sb.AppendLine($"    public PropertyHandle<{p.Type}> {p.Name} => new(_interceptor, \"{p.Name}\");");
             sb.AppendLine();
         }
 
-        EmitSetupAndVerifyMethods(sb, setupName, "_interceptor", indent: "    ");
+        EmitVerifyInOrder(sb, "_interceptor", indent: "    ");
         sb.AppendLine();
         EmitInstanceClass(sb, qualifiedInterface, members, indent: "    ");
-        sb.AppendLine();
-        EmitRecorder(sb, setupName, members, indent: "    ");
         sb.AppendLine("}");
     }
 
@@ -304,7 +278,7 @@ public class MockGenerator : IIncrementalGenerator
                     sb.AppendLine($"{ii}    get => _interceptor.Intercept<{p.Type}>(\"get_{p.Name}\", null, Array.Empty<object?>());");
             }
             if (p.HasSetter)
-                sb.AppendLine($"{ii}    set {{ _backing_{p.Name}_set = true; _backing_{p.Name} = value; _interceptor.InterceptVoid(\"Set{p.Name}\", null, new object?[] {{ value }}); }}");
+                sb.AppendLine($"{ii}    set {{ _backing_{p.Name}_set = true; _backing_{p.Name} = value; _interceptor.InterceptVoid(\"set_{p.Name}\", null, new object?[] {{ value }}); }}");
             sb.AppendLine($"{ii}}}");
             sb.AppendLine();
         }
@@ -320,7 +294,6 @@ public class MockGenerator : IIncrementalGenerator
             : classSymbol.ContainingNamespace.ToDisplayString();
 
         var mockClassName = GetMockClassName(className);
-        var setupInterfaceName = $"{mockClassName}Setup";
         var qualifiedClass = classSymbol.ToDisplayString(TypeFormat);
         var members = CollectAbstractClassMembers(classSymbol);
 
@@ -329,7 +302,6 @@ public class MockGenerator : IIncrementalGenerator
         sb.AppendLine("#nullable enable");
         sb.AppendLine();
         sb.AppendLine("using System;");
-        sb.AppendLine("using System.Linq;");
         sb.AppendLine("using System.Threading.Tasks;");
         sb.AppendLine("using Specter;");
         sb.AppendLine();
@@ -340,9 +312,7 @@ public class MockGenerator : IIncrementalGenerator
             sb.AppendLine();
         }
 
-        EmitSetupInterface(sb, setupInterfaceName, members);
-        sb.AppendLine();
-        EmitAbstractClassMock(sb, mockClassName, setupInterfaceName, qualifiedClass, members);
+        EmitAbstractClassMock(sb, mockClassName, qualifiedClass, members);
 
         var fileName = ns != null ? $"{ns}.{mockClassName}" : mockClassName;
         context.AddSource($"{fileName}.g.cs", sb.ToString());
@@ -350,9 +320,9 @@ public class MockGenerator : IIncrementalGenerator
 
     private static MemberCollection CollectAbstractClassMembers(INamedTypeSymbol classSymbol)
     {
-        var methods = new System.Collections.Generic.List<MethodModel>();
-        var properties = new System.Collections.Generic.List<PropertyModel>();
-        var seen = new System.Collections.Generic.HashSet<string>();
+        var methods = new List<MethodModel>();
+        var properties = new List<PropertyModel>();
+        var seen = new HashSet<string>();
 
         INamedTypeSymbol? current = classSymbol;
         while (current != null && current.SpecialType != SpecialType.System_Object)
@@ -367,7 +337,7 @@ public class MockGenerator : IIncrementalGenerator
                     {
                         var key = $"m:{method.Name}({string.Join(",", method.Parameters.Select(p => p.Type.ToDisplayString(TypeFormat)))})";
                         if (seen.Add(key))
-                            methods.Add(MethodModel.FromWithAccessibility(method));
+                            methods.Add(MethodModel.From(method));
                         break;
                     }
                     case IPropertySymbol prop
@@ -375,7 +345,7 @@ public class MockGenerator : IIncrementalGenerator
                           && prop.DeclaredAccessibility != Accessibility.Private:
                     {
                         if (seen.Add($"p:{prop.Name}"))
-                            properties.Add(PropertyModel.FromWithAccessibility(prop));
+                            properties.Add(PropertyModel.From(prop));
                         break;
                     }
                 }
@@ -387,7 +357,7 @@ public class MockGenerator : IIncrementalGenerator
     }
 
     private static void EmitAbstractClassMock(
-        StringBuilder sb, string className, string setupName, string qualifiedClass, MemberCollection members)
+        StringBuilder sb, string className, string qualifiedClass, MemberCollection members)
     {
         sb.AppendLine($"public sealed class {className} : {qualifiedClass}");
         sb.AppendLine("{");
@@ -429,7 +399,6 @@ public class MockGenerator : IIncrementalGenerator
             sb.AppendLine();
         }
 
-        // Backing fields for settable properties
         var settableProps = members.Properties.Where(p => p.HasSetter).ToList();
         foreach (var p in settableProps)
         {
@@ -452,22 +421,13 @@ public class MockGenerator : IIncrementalGenerator
                     sb.AppendLine($"        get => _interceptor.Intercept<{p.Type}>(\"get_{p.Name}\", null, Array.Empty<object?>());");
             }
             if (p.HasSetter)
-                sb.AppendLine($"        set {{ _backing_{p.Name}_set = true; _backing_{p.Name} = value; _interceptor.InterceptVoid(\"Set{p.Name}\", null, new object?[] {{ value }}); }}");
+                sb.AppendLine($"        set {{ _backing_{p.Name}_set = true; _backing_{p.Name} = value; _interceptor.InterceptVoid(\"set_{p.Name}\", null, new object?[] {{ value }}); }}");
             sb.AppendLine("    }");
             sb.AppendLine();
         }
 
-        // Reset clears backing fields
-        if (settableProps.Count > 0)
-        {
-            sb.AppendLine("    // Reset() already declared above; extend via partial if needed.");
-            sb.AppendLine();
-        }
-
         EmitAbstractClassShortcuts(sb, "_interceptor", members, indent: "    ");
-        EmitSetupAndVerifyMethods(sb, setupName, "_interceptor", indent: "    ");
-        sb.AppendLine();
-        EmitRecorder(sb, setupName, members, indent: "    ");
+        EmitVerifyInOrder(sb, "_interceptor", indent: "    ");
         sb.AppendLine("}");
     }
 
@@ -478,7 +438,7 @@ public class MockGenerator : IIncrementalGenerator
 
         foreach (var m in members.Methods)
         {
-            // Zero-parameter methods can't be overloaded — same name/params but different return type conflicts
+            // Zero-parameter shortcuts can't be added: the override already occupies the same signature
             if (m.Parameters.Count == 0)
                 continue;
 
@@ -489,9 +449,7 @@ public class MockGenerator : IIncrementalGenerator
             var typeArgsExpr = m.TypeParameterNames.Count > 0
                 ? $"new System.Type[] {{ {string.Join(", ", m.TypeParameterNames.Select(tp => $"typeof({tp})"))} }}"
                 : "null";
-            var matchersExpr = m.Parameters.Count > 0
-                ? $"new IMatcher[] {{ {string.Join(", ", m.Parameters.Select(p => $"{p.Name}.Inner"))} }}"
-                : "Array.Empty<IMatcher>()";
+            var matchersExpr = $"new IMatcher[] {{ {string.Join(", ", m.Parameters.Select(p => $"{p.Name}.Inner"))} }}";
 
             if (m.IsVoid)
             {
@@ -505,152 +463,19 @@ public class MockGenerator : IIncrementalGenerator
             }
             sb.AppendLine();
         }
-    }
 
-    private static void EmitSetupAndVerifyMethods(
-        StringBuilder sb, string setupName, string interceptorRef, string indent)
-    {
-        var i = indent;
-
-        sb.AppendLine($"{i}public SetupBuilder<TReturn> Setup<TReturn>(Func<{setupName}, TReturn> configure)");
-        sb.AppendLine($"{i}{{");
-        sb.AppendLine($"{i}    var rec = new __Recorder();");
-        sb.AppendLine($"{i}    configure(rec);");
-        sb.AppendLine($"{i}    return new SetupBuilder<TReturn>({interceptorRef}.AddSetup(rec.CapturedMethod, rec.CapturedTypeArgs, rec.CapturedMatchers));");
-        sb.AppendLine($"{i}}}");
-        sb.AppendLine();
-        sb.AppendLine($"{i}public VoidSetupBuilder Setup(Action<{setupName}> configure)");
-        sb.AppendLine($"{i}{{");
-        sb.AppendLine($"{i}    var rec = new __Recorder();");
-        sb.AppendLine($"{i}    configure(rec);");
-        sb.AppendLine($"{i}    return new VoidSetupBuilder({interceptorRef}.AddSetup(rec.CapturedMethod, rec.CapturedTypeArgs, rec.CapturedMatchers));");
-        sb.AppendLine($"{i}}}");
-        sb.AppendLine();
-        sb.AppendLine($"{i}public SequenceSetupBuilder<TReturn> SetupSequence<TReturn>(Func<{setupName}, TReturn> configure)");
-        sb.AppendLine($"{i}{{");
-        sb.AppendLine($"{i}    var rec = new __Recorder();");
-        sb.AppendLine($"{i}    configure(rec);");
-        sb.AppendLine($"{i}    return new SequenceSetupBuilder<TReturn>({interceptorRef}.AddSetup(rec.CapturedMethod, rec.CapturedTypeArgs, rec.CapturedMatchers));");
-        sb.AppendLine($"{i}}}");
-        sb.AppendLine();
-        sb.AppendLine($"{i}public void Verify<TReturn>(Func<{setupName}, TReturn> configure, Specter.Times times)");
-        sb.AppendLine($"{i}{{");
-        sb.AppendLine($"{i}    var rec = new __Recorder();");
-        sb.AppendLine($"{i}    configure(rec);");
-        sb.AppendLine($"{i}    {interceptorRef}.Verify(rec.CapturedMethod, rec.CapturedTypeArgs, rec.CapturedMatchers, times);");
-        sb.AppendLine($"{i}}}");
-        sb.AppendLine();
-        sb.AppendLine($"{i}public void Verify(Action<{setupName}> configure, Specter.Times times)");
-        sb.AppendLine($"{i}{{");
-        sb.AppendLine($"{i}    var rec = new __Recorder();");
-        sb.AppendLine($"{i}    configure(rec);");
-        sb.AppendLine($"{i}    {interceptorRef}.Verify(rec.CapturedMethod, rec.CapturedTypeArgs, rec.CapturedMatchers, times);");
-        sb.AppendLine($"{i}}}");
-        sb.AppendLine();
-        sb.AppendLine($"{i}public void VerifyInOrder(params Action<{setupName}>[] steps)");
-        sb.AppendLine($"{i}{{");
-        sb.AppendLine($"{i}    var parsed = new (string, Type[]?, IMatcher[])[steps.Length];");
-        sb.AppendLine($"{i}    for (int si = 0; si < steps.Length; si++)");
-        sb.AppendLine($"{i}    {{");
-        sb.AppendLine($"{i}        var rec = new __Recorder();");
-        sb.AppendLine($"{i}        steps[si](rec);");
-        sb.AppendLine($"{i}        parsed[si] = (rec.CapturedMethod, rec.CapturedTypeArgs, rec.CapturedMatchers);");
-        sb.AppendLine($"{i}    }}");
-        sb.AppendLine($"{i}    {interceptorRef}.VerifyInOrder(parsed);");
-        sb.AppendLine($"{i}}}");
-        sb.AppendLine();
-        sb.AppendLine($"{i}public System.Collections.Generic.IReadOnlyList<Specter.CallRecord> ReceivedCalls<TReturn>(Func<{setupName}, TReturn> configure)");
-        sb.AppendLine($"{i}{{");
-        sb.AppendLine($"{i}    var rec = new __Recorder();");
-        sb.AppendLine($"{i}    configure(rec);");
-        sb.AppendLine($"{i}    return {interceptorRef}.GetCalls(rec.CapturedMethod, rec.CapturedTypeArgs, rec.CapturedMatchers).Select(c => new Specter.CallRecord(c.Args)).ToList();");
-        sb.AppendLine($"{i}}}");
-        sb.AppendLine();
-        sb.AppendLine($"{i}public System.Collections.Generic.IReadOnlyList<Specter.CallRecord> ReceivedCalls(Action<{setupName}> configure)");
-        sb.AppendLine($"{i}{{");
-        sb.AppendLine($"{i}    var rec = new __Recorder();");
-        sb.AppendLine($"{i}    configure(rec);");
-        sb.AppendLine($"{i}    return {interceptorRef}.GetCalls(rec.CapturedMethod, rec.CapturedTypeArgs, rec.CapturedMatchers).Select(c => new Specter.CallRecord(c.Args)).ToList();");
-        sb.AppendLine($"{i}}}");
-    }
-
-    private static void EmitRecorder(StringBuilder sb, string setupName, MemberCollection members, string indent)
-    {
-        var i = indent;
-        var ii = indent + "    ";
-
-        sb.AppendLine($"{i}private sealed class __Recorder : {setupName}");
-        sb.AppendLine($"{i}{{");
-        sb.AppendLine($"{ii}internal string CapturedMethod = \"\";");
-        sb.AppendLine($"{ii}internal Type[]? CapturedTypeArgs;");
-        sb.AppendLine($"{ii}internal IMatcher[] CapturedMatchers = Array.Empty<IMatcher>();");
-
-        foreach (var m in members.Methods)
-        {
-            var typeParams = m.TypeParameterNames.Count > 0
-                ? $"<{string.Join(", ", m.TypeParameterNames)}>"
-                : "";
-            var parms = string.Join(", ", m.Parameters.Select(p => $"Matcher<{p.Type}> {p.Name}"));
-            var typeArgsCapture = m.TypeParameterNames.Count > 0
-                ? $"new Type[] {{ {string.Join(", ", m.TypeParameterNames.Select(tp => $"typeof({tp})"))} }}"
-                : "null";
-            var matchersExpr = m.Parameters.Count > 0
-                ? $"new IMatcher[] {{ {string.Join(", ", m.Parameters.Select(p => $"{p.Name}.Inner"))} }}"
-                : "Array.Empty<IMatcher>()";
-            var ret = m.IsVoid ? "void" : m.ReturnType;
-
-            sb.AppendLine();
-            sb.AppendLine($"{ii}public {ret} {m.Name}{typeParams}({parms})");
-            sb.AppendLine($"{ii}{{");
-            sb.AppendLine($"{ii}    CapturedMethod = \"{m.Name}\";");
-            sb.AppendLine($"{ii}    CapturedTypeArgs = {typeArgsCapture};");
-            sb.AppendLine($"{ii}    CapturedMatchers = {matchersExpr};");
-            if (!m.IsVoid)
-                sb.AppendLine($"{ii}    return default!;");
-            sb.AppendLine($"{ii}}}");
-        }
-
+        // Property handles use "{Name}Handle" since the mock IS the class and can't reuse the property name
         foreach (var p in members.Properties)
         {
-            if (p.HasGetter)
-            {
-                sb.AppendLine();
-                // The setup interface only declares { get; } for properties
-                sb.AppendLine($"{ii}public {p.Type} {p.Name}");
-                sb.AppendLine($"{ii}{{");
-                sb.AppendLine($"{ii}    get");
-                sb.AppendLine($"{ii}    {{");
-                sb.AppendLine($"{ii}        CapturedMethod = \"get_{p.Name}\";");
-                sb.AppendLine($"{ii}        CapturedTypeArgs = null;");
-                sb.AppendLine($"{ii}        CapturedMatchers = Array.Empty<IMatcher>();");
-                sb.AppendLine($"{ii}        return default!;");
-                sb.AppendLine($"{ii}    }}");
-                sb.AppendLine($"{ii}}}");
-            }
-
-            if (p.HasSetter)
-            {
-                sb.AppendLine();
-                sb.AppendLine($"{ii}public void Set{p.Name}(Matcher<{p.Type}> value)");
-                sb.AppendLine($"{ii}{{");
-                sb.AppendLine($"{ii}    CapturedMethod = \"Set{p.Name}\";");
-                sb.AppendLine($"{ii}    CapturedTypeArgs = null;");
-                sb.AppendLine($"{ii}    CapturedMatchers = new IMatcher[] {{ value.Inner }};");
-                sb.AppendLine($"{ii}}}");
-            }
+            sb.AppendLine($"{i}public PropertyHandle<{p.Type}> {p.Name}Handle => new({interceptorRef}, \"{p.Name}\");");
+            sb.AppendLine();
         }
-
-        sb.AppendLine($"{i}}}");
     }
 
-    // ── Data models ────────────────────────────────────────────
-
-    private class MemberCollection(
-        System.Collections.Generic.List<MethodModel> methods,
-        System.Collections.Generic.List<PropertyModel> properties)
+    private class MemberCollection(List<MethodModel> methods, List<PropertyModel> properties)
     {
-        public System.Collections.Generic.List<MethodModel> Methods { get; } = methods;
-        public System.Collections.Generic.List<PropertyModel> Properties { get; } = properties;
+        public List<MethodModel> Methods { get; } = methods;
+        public List<PropertyModel> Properties { get; } = properties;
     }
 
     private class MethodModel
@@ -659,19 +484,10 @@ public class MockGenerator : IIncrementalGenerator
         public string ReturnType { get; private set; } = "";
         public bool IsVoid { get; private set; }
         public bool IsProtected { get; private set; }
-        public System.Collections.Generic.List<ParameterModel> Parameters { get; private set; } = new();
-        public System.Collections.Generic.List<string> TypeParameterNames { get; private set; } = new();
+        public List<ParameterModel> Parameters { get; private set; } = new();
+        public List<string> TypeParameterNames { get; private set; } = new();
 
         public static MethodModel From(IMethodSymbol s) => new()
-        {
-            Name = s.Name,
-            IsVoid = s.ReturnsVoid,
-            ReturnType = s.ReturnType.ToDisplayString(TypeFormat),
-            Parameters = s.Parameters.Select(ParameterModel.From).ToList(),
-            TypeParameterNames = s.TypeParameters.Select(tp => tp.Name).ToList(),
-        };
-
-        public static MethodModel FromWithAccessibility(IMethodSymbol s) => new()
         {
             Name = s.Name,
             IsVoid = s.ReturnsVoid,
@@ -704,14 +520,6 @@ public class MockGenerator : IIncrementalGenerator
         public bool IsProtected { get; private set; }
 
         public static PropertyModel From(IPropertySymbol s) => new()
-        {
-            Name = s.Name,
-            Type = s.Type.ToDisplayString(TypeFormat),
-            HasGetter = !s.IsWriteOnly,
-            HasSetter = !s.IsReadOnly,
-        };
-
-        public static PropertyModel FromWithAccessibility(IPropertySymbol s) => new()
         {
             Name = s.Name,
             Type = s.Type.ToDisplayString(TypeFormat),

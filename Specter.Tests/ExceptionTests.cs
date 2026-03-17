@@ -10,7 +10,7 @@ public class ExceptionTests
     public void Throws_on_matched_call()
     {
         var mock = new MockEmailService();
-        mock.Setup(x => x.Send("bad@evil.com", Any))
+        mock.Send("bad@evil.com", Any)
             .Throws(new InvalidOperationException("Blocked!"));
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
@@ -22,7 +22,7 @@ public class ExceptionTests
     public void Throws_generic_exception_type()
     {
         var mock = new MockEmailService();
-        mock.Setup(x => x.Send(Any, Any)).Throws<ArgumentException>();
+        mock.Send(Any, Any).Throws<ArgumentException>();
 
         Assert.Throws<ArgumentException>(() => mock.Instance.Send("a", "b"));
     }

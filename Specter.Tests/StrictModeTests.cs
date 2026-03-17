@@ -17,7 +17,7 @@ public class StrictModeTests
     public void Does_not_throw_when_setup_matches()
     {
         var mock = new MockEmailService(strict: true);
-        mock.Setup(x => x.Send(Any, Any)).Returns(true);
+        mock.Send(Any, Any).Returns(true);
 
         Assert.True(mock.Instance.Send("a@b.com", "hi"));
     }
